@@ -1,13 +1,15 @@
-# バックエンド開発仕様書：The Frustrating Registration Form (AWS Edition) v4
+# バックエンド開発仕様書：The Frustrating Registration Form (AWS Edition) v5
 
 ## 1. プロジェクト概要
 ユーザーの忍耐力を極限まで試すジョークWebアプリケーション。
 ディズニーランド級の「待機列」の後、2段階のミニゲーム（アクション＆視覚テスト）をクリアしないと会員登録フォームに辿り着けない。
 どの段階で失敗しても、ペナルティとして待機列の最後尾からやり直しとなる。
 
+**鬼畜仕様:** すべての関門をクリアしても、最後に「サーバーエラー」で登録は永遠に完了しない。
+
 ## 2. 技術スタック
 * **言語:** Go (Latest) / Echo (v4)
-* **AWS:** ECS Fargate + ALB, Bedrock (Claude 3 Haiku), S3
+* **AWS:** ECS Fargate + ALB, Bedrock (Claude 3 Haiku), S3, CloudFront
 * **画像処理:** Go標準ライブラリ (image/draw)
 * **通信:** gorilla/websocket
 
@@ -18,16 +20,27 @@
 * **注意:** App RunnerはWebSocket非対応のため、ECS Fargate + ALBを採用
 
 ## 4. データ構造 (In-Memory)
-**ユーザー状態管理**
-進行状況を厳格に管理するため、ステータスを細分化する。
 
+### User構造体
 ```go
 type User struct {
-    ID        string          // UUID
-    SessionID string          // セッションID（Cookie）
-    Conn      *websocket.Conn
-    JoinedAt  time.Time
-    Status    string          // 現在の状況
+    ID            string          // UUID
+    SessionID     string          // セッションID（Cookie）
+    Conn          *websocket.Conn
+    JoinedAt      time.Time
+    Status        string          // 現在の状況
+
+    // CAPTCHA用
+    CaptchaTargetX int
+    CaptchaTargetY int
+
+    // OTP用
+    OTPFishName   string    // 正解の魚名
+    OTPAttempts   int       // 試行回数（最大3回）
+
+    // 登録用
+    RegisterToken    string
+    RegisterTokenExp time.Time  // 有効期限（10分）
 }
 
 // Status Enum:
@@ -35,6 +48,14 @@ type User struct {
 // "stage1_dino"     : 第1関門 Dino Run プレイ中
 // "stage2_captcha"  : 第2関門 CAPTCHA プレイ中
 // "registering"     : 登録フォーム入力中 (クリア済)
+```
+
+### セッション管理
+```go
+type SessionStore struct {
+    sessions map[string]*User  // sessionID -> User
+    mu       sync.RWMutex
+}
 ```
 
 ## 5. APIエンドポイント & フロー詳細
@@ -70,14 +91,20 @@ type User struct {
 **Logic (The Filter):**
 
 * **失敗 (`survived: false`):**
-  * 即座に WebSocket 切断 (`Conn.Close()`)。
+  * 失敗メッセージを送信後、WebSocket切断。
+  * クライアントは3秒後に自動でトップページへリダイレクト。
   * **結果:** 待機列の最後尾へリセット。
 * **成功 (`survived: true`):**
   * ユーザーのステータスを `stage2_captcha` に更新。
 
-**Response:**
+**Response (成功時):**
 ```json
-{ "next_stage": "captcha", "message": "身体能力テスト合格。次は視力テストです。" }
+{ "error": false, "next_stage": "captcha", "message": "身体能力テスト合格。次は視力テストです。" }
+```
+
+**Response (失敗時):**
+```json
+{ "error": true, "message": "ゲームオーバー。待機列の最後尾からやり直しです。", "redirect_delay": 3 }
 ```
 
 ### Phase 3: 第2関門 - Impossible CAPTCHA
@@ -88,8 +115,8 @@ type User struct {
 
 * **前提:** Userのステータスが `stage2_captcha` であること。
 * **Logic:**
-  * Titan Image生成の背景画像 + 極小オリジナルキャラクターを合成。
-  * 正解座標 $(TargetX, TargetY)$ をサーバーメモリに保存。
+  * S3から背景画像をランダム取得 + 極小オリジナルキャラクターを合成。
+  * 正解座標をUser構造体に保存。
 
 **Endpoint:** `POST /api/captcha/verify`
 
@@ -102,17 +129,24 @@ type User struct {
 
 * 許容範囲（半径5px〜10px）判定。
 * **失敗:**
-  * **無慈悲なリセット:** WebSocket切断、ステータス破棄、待機列から削除。
+  * 失敗メッセージを送信後、WebSocket切断。
+  * クライアントは3秒後に自動でトップページへリダイレクト。
   * **ユーザー体験:** 「あと少しで登録できたのに、また150人待ちの最初から！？」
 * **成功:**
   * ステータスを `registering` に更新。
-  * 登録用トークンを発行。
+  * 登録用トークン（UUID）を発行、有効期限10分。
+
+**Response (成功時):**
+```json
+{ "error": false, "token": "550e8400-e29b-41d4-a716-446655440000", "message": "視力テスト合格！登録フォームへどうぞ。" }
+```
 
 ### Phase 4: 会員登録 (The Final Boss)
 
 **Endpoint:** `POST /api/register`
 
 * トークン所有者のみアクセス可能。
+* トークンはSessionIDと紐付けて検証。
 
 #### AIパスワード煽り (`POST /api/password/analyze`)
 
@@ -121,12 +155,48 @@ type User struct {
 * 入力された文字列から名前や生年月日などを予測し、イライラするメッセージを生成。
 * 例: 「ここまで必死になって辿り着いたのに、そのパスワードｗｗ」「もしかして誕生日1998年3月15日？」
 
+**Request:**
+```json
+{ "password": "taro1998" }
+```
+
+**Response:**
+```json
+{ "error": false, "message": "太郎さんですか？1998年生まれ？そのパスワード、3秒で破られますよ..." }
+```
+
 #### 魚OTP (`POST /api/otp/send` -> `POST /api/otp/verify`)
 
-* **事前に用意した魚画像セット**（約20種のマイナー魚）をランダム表示。
+* **S3に事前保存した魚画像セット**（約20種のマイナー魚）をランダム表示。
 * ユーザーは魚の品種名を当てて入力する。
 * **正解判定:** ひらがな/カタカナ許容（「おにかます」「オニカマス」どちらもOK）
 * **失敗時:** 3回まで再試行可能。3回失敗で待機列の最後尾へ。
+
+**POST /api/otp/send Response:**
+```json
+{ "error": false, "image_url": "https://xxx.cloudfront.net/fish/onikamasu.jpg", "message": "この魚の名前を入力してください" }
+```
+
+**POST /api/otp/verify Request:**
+```json
+{ "answer": "オニカマス" }
+```
+
+#### 登録完了（鬼畜仕様）
+
+**POST /api/register** を呼んだ後、すべてのバリデーションが成功しても：
+
+```json
+{
+  "error": true,
+  "message": "サーバーエラーが発生しました。お手数ですが最初からやり直してください。",
+  "redirect_delay": 3
+}
+```
+
+* WebSocket切断
+* 3秒後にトップページへリダイレクト
+* **永遠に登録は完了しない**
 
 ## 6. クライアント(Front)への実装要求
 
@@ -135,6 +205,9 @@ type User struct {
 
 ### 恐怖の演出
 * 第2関門（CAPTCHA）の説明文に、赤文字で**「※失敗すると待機列の最後尾に戻ります」**と小さく表示し、プレッシャーを与える。
+
+### 失敗時の自動リダイレクト
+* `redirect_delay` が含まれるレスポンスを受け取ったら、指定秒数後にトップページへリダイレクト。
 
 ---
 
@@ -147,25 +220,26 @@ type User struct {
 | **有効期限** | セッション（ブラウザを閉じるまで） |
 | **用途** | WebSocket接続とREST APIの紐付け |
 
-```go
-// セッション管理
-type SessionStore struct {
-    sessions map[string]*User  // sessionID -> User
-    mu       sync.RWMutex
-}
-```
+## 8. 登録トークン仕様
 
-## 8. CAPTCHA詳細仕様
+| 項目 | 値 |
+|------|-----|
+| **形式** | UUID v4 |
+| **有効期限** | 10分 |
+| **保存場所** | User構造体内 |
+| **検証** | SessionID + Token の一致確認 |
+
+## 9. CAPTCHA詳細仕様
 
 | 項目 | 値 |
 |------|-----|
 | **画像サイズ** | 1024 x 768 px |
 | **ターゲットサイズ** | 5〜8 px |
-| **ターゲット** | オリジナルキャラクター（事前画像をS3から取得） |
+| **ターゲット** | オリジナルキャラクター（S3から取得） |
 | **許容範囲** | 半径 5〜10 px |
-| **背景** | Titan Imageで生成（群衆シーンなど） |
+| **背景** | S3に事前保存した画像（約20種）をランダム使用 |
 
-## 9. 魚OTP詳細仕様
+## 10. 魚OTP詳細仕様
 
 | 項目 | 内容 |
 |------|------|
@@ -175,7 +249,7 @@ type SessionStore struct {
 | **再試行** | 3回まで可能 |
 | **失敗ペナルティ** | 3回失敗で待機列の最後尾へ |
 
-## 10. WebSocket仕様
+## 11. WebSocket仕様
 
 ### メッセージ形式
 
@@ -184,6 +258,7 @@ type SessionStore struct {
 { "type": "queue_update", "position": 5, "total": 150 }
 { "type": "stage_change", "status": "stage1_dino", "message": "..." }
 { "type": "error", "code": "SESSION_EXPIRED", "message": "..." }
+{ "type": "failure", "message": "...", "redirect_delay": 3 }
 ```
 
 **Client → Server:**
@@ -198,29 +273,56 @@ type SessionStore struct {
 | **ALB Idle Timeout** | 300秒 |
 | **通知タイミング** | 順番が変わったときのみ |
 
+## 12. エラーレスポンス形式
+
+すべてのREST APIで統一したエラー形式を使用。
+
+**成功時:**
+```json
+{ "error": false, "data": {...} }
+```
+
+**失敗時:**
+```json
+{ "error": true, "message": "エラーメッセージ" }
+```
+
+**リダイレクト付き失敗:**
+```json
+{ "error": true, "message": "...", "redirect_delay": 3 }
+```
+
+## 13. CORS設定
+
+| 項目 | 値 |
+|------|-----|
+| **Allowed Origins** | CloudFrontドメイン |
+| **Allowed Methods** | GET, POST, OPTIONS |
+| **Allowed Headers** | Content-Type, Cookie |
+| **Credentials** | true（Cookie送信のため） |
+
 ---
 
-## 11. インフラ構成詳細
+## 14. インフラ構成詳細
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           AWS Cloud                                 │
 │                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                         VPC                                  │   │
-│  │                                                              │   │
-│  │   [Internet] ──→ [ALB] ──→ [ECS Fargate]                    │   │
-│  │                    │         (Single Task)                   │   │
-│  │                    │              │                          │   │
-│  │              ┌─────┴─────┐        │                          │   │
-│  │              │           │        │                          │   │
-│  │         HTTP/WS     Health      ┌─┴──────────────┐           │   │
-│  │         :8080       Check       │                │           │   │
-│  │                                 ↓                ↓           │   │
-│  │                           [Bedrock]          [S3]            │   │
-│  │                           Claude 3 Haiku    - 魚画像         │   │
-│  │                                             - キャラ画像     │   │
-│  └─────────────────────────────────────────────────────────────┘   │
+│  [CloudFront] ──→ [S3: Frontend]                                   │
+│       │                                                             │
+│       └──→ [ALB] ──→ [ECS Fargate]                                 │
+│             │         (Single Task)                                 │
+│             │              │                                        │
+│       ┌─────┴─────┐        │                                        │
+│       │           │        │                                        │
+│  HTTP/WS     Health      ┌─┴──────────────┐                         │
+│  :8080       Check       │                │                         │
+│                          ↓                ↓                         │
+│                    [Bedrock]          [S3: Assets]                  │
+│                 Claude 3 Haiku        - 魚画像                      │
+│                 (ap-northeast-1)      - キャラ画像                  │
+│                                       - 背景画像                    │
 │                                                                     │
 │  [ECR] ← Docker Image                                              │
 │  [CloudWatch] ← Logs                                               │
@@ -236,7 +338,9 @@ type SessionStore struct {
 | **ECS Cluster** | コンテナ管理 | Fargate |
 | **ECS Service** | タスク実行 | Desired Count: 1, Auto Scaling: Off |
 | **ECR** | Dockerイメージ | プライベートリポジトリ |
-| **S3** | 静的ファイル | 魚画像、キャラクター画像 |
+| **S3 (Assets)** | 静的ファイル | 魚画像、キャラクター画像、背景画像 |
+| **S3 (Frontend)** | フロントエンド | 静的ウェブサイト |
+| **CloudFront** | CDN | S3 + ALBをオリジン |
 | **IAM Role** | 権限 | Bedrock呼び出し、S3読み取り |
 | **CloudWatch** | ログ | ECSタスクログ |
 
@@ -252,10 +356,11 @@ type SessionStore struct {
 
 | リソース | 単価 | 4日間コスト |
 |----------|------|-------------|
-| ECS Fargate (0.5 vCPU, 1GB) | $0.05/時 | 約$5 |
+| ECS Fargate (0.5 vCPU, 1GB) | $0.03/時 | 約$3 |
 | ALB | $0.03/時 + LCU | 約$3 |
-| Bedrock Claude 3 Haiku | $0.25/100万入力トークン | 使用量次第 |
+| Bedrock Claude 3 Haiku | $0.25/100万入力トークン | 約$0.5 |
 | S3 | - | ほぼ無料 |
-| **合計** | | **約$8〜15 + Bedrock使用料** |
+| CloudFront | - | ほぼ無料（1TB無料枠） |
+| **合計** | | **約$7〜15** |
 
 ※ 使用後はリソースを削除してコストを抑える
