@@ -1,4 +1,4 @@
-# バックエンド開発仕様書：The Frustrating Registration Form (AWS Edition) v5
+# バックエンド開発仕様書：The Frustrating Registration Form (AWS Edition) v6
 
 ## 1. プロジェクト概要
 ユーザーの忍耐力を極限まで試すジョークWebアプリケーション。
@@ -31,8 +31,9 @@ type User struct {
     Status        string          // 現在の状況
 
     // CAPTCHA用
-    CaptchaTargetX int
-    CaptchaTargetY int
+    CaptchaTargetX  int
+    CaptchaTargetY  int
+    CaptchaAttempts int  // 試行回数（最大3回）
 
     // OTP用
     OTPFishName   string    // 正解の魚名
@@ -58,6 +59,14 @@ type SessionStore struct {
 }
 ```
 
+### 待機列管理
+```go
+type WaitingQueue struct {
+    users []*User  // 待機中のユーザー（順番通り）
+    mu    sync.RWMutex
+}
+```
+
 ## 5. APIエンドポイント & フロー詳細
 
 ### Phase 1: 終わらない待機列 (WebSocket)
@@ -69,6 +78,13 @@ type SessionStore struct {
 * **通知タイミング:** 順番が変わったときのみ通知
 * **関門突破:**
   * 人数が0になり、かつランダムな焦らし時間（10〜30秒）が経過したら、第1関門へ誘導。
+
+**焦らし時間の詳細フロー:**
+1. 待機列が0人になる
+2. 10〜30秒のランダム待機（焦らし時間）開始
+3. この間に新規ユーザーが来ても、タイマーは継続（**先着優先**）
+4. 新規ユーザーは待機列1人目として待機
+5. タイマー完了後、先頭ユーザーがステージ1へ
 
 ```json
 // Server -> Client
@@ -82,6 +98,8 @@ type SessionStore struct {
 
 * **概要:** Chrome恐竜ゲームの激ムズ版。
 * **不正対策:** なし（ジョークアプリのため）
+* **タイムアウト:** 3分（結果未送信の場合、失敗扱い）
+* **再試行:** 不可（1回のみ）
 
 **Request:**
 ```json
@@ -90,6 +108,10 @@ type SessionStore struct {
 
 **Logic (The Filter):**
 
+* **タイムアウト（3分経過）:**
+  * サーバーからWebSocket経由で失敗通知を送信。
+  * WebSocket切断。
+  * **結果:** 待機列の最後尾へリセット。
 * **失敗 (`survived: false`):**
   * 失敗メッセージを送信後、WebSocket切断。
   * クライアントは3秒後に自動でトップページへリダイレクト。
@@ -111,12 +133,24 @@ type SessionStore struct {
 
 アクションゲームで疲れた目に追い打ちをかける。
 
+* **タイムアウト:** 3分（時間切れで失敗扱い）
+* **再試行:** 3回まで可能
+
 **Endpoint:** `GET /api/captcha/generate`
 
 * **前提:** Userのステータスが `stage2_captcha` であること。
 * **Logic:**
   * S3から背景画像をランダム取得 + 極小オリジナルキャラクターを合成。
   * 正解座標をUser構造体に保存。
+
+**Response:**
+```json
+{
+  "error": false,
+  "image_url": "https://xxx.cloudfront.net/captcha/xxxxx.png",
+  "message": "画像の中に隠れているキャラクターをクリックしてください"
+}
+```
 
 **Endpoint:** `POST /api/captcha/verify`
 
@@ -128,7 +162,14 @@ type SessionStore struct {
 **Logic (The Trap):**
 
 * 許容範囲（半径5px〜10px）判定。
-* **失敗:**
+* **タイムアウト（3分経過）:**
+  * サーバーからWebSocket経由で失敗通知を送信。
+  * WebSocket切断。
+  * **結果:** 待機列の最後尾へリセット。
+* **失敗（1〜2回目）:**
+  * 残り試行回数を通知。
+  * 新しいCAPTCHA画像を生成。
+* **失敗（3回目）:**
   * 失敗メッセージを送信後、WebSocket切断。
   * クライアントは3秒後に自動でトップページへリダイレクト。
   * **ユーザー体験:** 「あと少しで登録できたのに、また150人待ちの最初から！？」
@@ -141,17 +182,52 @@ type SessionStore struct {
 { "error": false, "token": "550e8400-e29b-41d4-a716-446655440000", "message": "視力テスト合格！登録フォームへどうぞ。" }
 ```
 
+**Response (失敗時・1〜2回目):**
+```json
+{
+  "error": true,
+  "message": "不正解です。残り2回",
+  "attempts_remaining": 2,
+  "new_image_url": "https://xxx.cloudfront.net/captcha/newimage.png"
+}
+```
+
+**Response (失敗時・3回目):**
+```json
+{
+  "error": true,
+  "message": "3回失敗しました。待機列の最後尾からやり直しです。",
+  "redirect_delay": 3
+}
+```
+
 ### Phase 4: 会員登録 (The Final Boss)
 
 **Endpoint:** `POST /api/register`
 
 * トークン所有者のみアクセス可能。
 * トークンはSessionIDと紐付けて検証。
+* **トークン有効期限:** 10分（期限切れで待機列の最後尾へ）
+
+**Request:**
+```json
+{
+  "token": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "田中太郎",
+  "email": "taro@example.com",
+  "password": "password123",
+  "birthday": "1998-03-15",
+  "phone": "090-1234-5678",
+  "address": "東京都渋谷区..."
+}
+```
+※ 詳細な入力項目は後で指定
 
 #### AIパスワード煽り (`POST /api/password/analyze`)
 
 * Bedrock (Claude 3 Haiku) がパスワードをリアルタイムで分析。
 * **タイミング:** デバウンス（500ms遅延）でAPI呼び出し
+* **アクセス制限:** なし（SessionIDがあれば誰でも利用可能）
 * 入力された文字列から名前や生年月日などを予測し、イライラするメッセージを生成。
 * 例: 「ここまで必死になって辿り着いたのに、そのパスワードｗｗ」「もしかして誕生日1998年3月15日？」
 
@@ -165,12 +241,22 @@ type SessionStore struct {
 { "error": false, "message": "太郎さんですか？1998年生まれ？そのパスワード、3秒で破られますよ..." }
 ```
 
+**Bedrockエラー時のフォールバック:**
+```go
+var fallbackMessages = []string{
+    "そのパスワード、弱そうですね...",
+    "もう少し工夫してみては？",
+    "予測しやすそうなパスワードですね。",
+}
+```
+※ Bedrockがエラーの場合、上記からランダムに1つ返す
+
 #### 魚OTP (`POST /api/otp/send` -> `POST /api/otp/verify`)
 
 * **S3に事前保存した魚画像セット**（約20種のマイナー魚）をランダム表示。
 * ユーザーは魚の品種名を当てて入力する。
 * **正解判定:** ひらがな/カタカナ許容（「おにかます」「オニカマス」どちらもOK）
-* **失敗時:** 3回まで再試行可能。3回失敗で待機列の最後尾へ。
+* **失敗時:** 3回まで再試行可能。**毎回新しい魚**を表示。3回失敗で待機列の最後尾へ。
 
 **POST /api/otp/send Response:**
 ```json
@@ -180,6 +266,30 @@ type SessionStore struct {
 **POST /api/otp/verify Request:**
 ```json
 { "answer": "オニカマス" }
+```
+
+**POST /api/otp/verify Response (成功時):**
+```json
+{ "error": false, "message": "正解！登録を完了してください。" }
+```
+
+**POST /api/otp/verify Response (失敗時・1〜2回目):**
+```json
+{
+  "error": true,
+  "message": "不正解です。残り2回",
+  "attempts_remaining": 2,
+  "new_image_url": "https://xxx.cloudfront.net/fish/newfish.jpg"
+}
+```
+
+**POST /api/otp/verify Response (失敗時・3回目):**
+```json
+{
+  "error": true,
+  "message": "3回失敗しました。待機列の最後尾からやり直しです。",
+  "redirect_delay": 3
+}
 ```
 
 #### 登録完了（鬼畜仕様）
@@ -273,9 +383,38 @@ type SessionStore struct {
 | **ALB Idle Timeout** | 300秒 |
 | **通知タイミング** | 順番が変わったときのみ |
 
-## 12. エラーレスポンス形式
+### 再接続ポリシー
 
-すべてのREST APIで統一したエラー形式を使用。
+| 切断理由 | 再接続 | 結果 |
+|----------|--------|------|
+| **ネットワーク障害** | ❌ 不可 | 最後尾から |
+| **ブラウザリロード** | ❌ 不可 | 最後尾から |
+| **ステージ失敗** | ❌ 不可 | 最後尾から |
+| **タイムアウト** | ❌ 不可 | 最後尾から |
+
+※ いかなる理由でも切断された場合、再接続時は待機列の最後尾に並び直し
+
+## 12. タイムアウト・再試行仕様
+
+### タイムアウト
+
+| ステージ | タイムアウト | 結果 |
+|----------|--------------|------|
+| **Dino Run** | 3分 | 失敗扱い、最後尾へ |
+| **CAPTCHA** | 3分 | 失敗扱い、最後尾へ |
+| **登録フォーム** | 10分（トークン有効期限） | 失敗扱い、最後尾へ |
+
+### 再試行
+
+| ステージ | 再試行回数 | 失敗時の挙動 |
+|----------|------------|--------------|
+| **Dino Run** | 1回のみ | 即失敗、最後尾へ |
+| **CAPTCHA** | 3回まで | 同じ画像で再試行、3回失敗で最後尾へ |
+| **魚OTP** | 3回まで | **毎回新しい魚**、3回失敗で最後尾へ |
+
+## 13. エラーレスポンス形式
+
+すべてのREST APIで統一した形式を使用。
 
 **成功時:**
 ```json
@@ -292,7 +431,7 @@ type SessionStore struct {
 { "error": true, "message": "...", "redirect_delay": 3 }
 ```
 
-## 13. CORS設定
+## 14. CORS設定
 
 | 項目 | 値 |
 |------|-----|
@@ -303,7 +442,7 @@ type SessionStore struct {
 
 ---
 
-## 14. インフラ構成詳細
+## 15. インフラ構成詳細
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
