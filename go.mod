@@ -1,6 +1,6 @@
 module hackz-ptera/back
 
-go 1.24.2
+go 1.23
 
 require github.com/labstack/echo/v4 v4.14.0
 
