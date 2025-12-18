@@ -31,17 +31,11 @@ jobs:
 
       - name: Install dependencies
         if: steps.check_go.outputs.has_go_files == 'true'
-        run: |
-          go mod tidy
-          go mod download
-
-      # Note: Linter skipped due to Go version compatibility issues
-      # TODO: Re-enable when golangci-lint supports Go 1.24+ dependencies
+        run: go mod download
 
       - name: Run tests
         if: steps.check_go.outputs.has_go_files == 'true'
         run: go test -v -race -coverprofile=coverage.out ./...
-        continue-on-error: true
 
       - name: Build
         if: steps.check_go.outputs.has_go_files == 'true'

@@ -25,13 +25,10 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: |
-          go mod tidy
-          go mod download
+        run: go mod download
 
       - name: Run tests
         run: go test -v ./...
-        continue-on-error: true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

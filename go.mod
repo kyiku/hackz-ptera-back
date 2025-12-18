@@ -1,4 +1,4 @@
-module hackz-ptera/back
+module github.com/kyiku/hackz-ptera-back
 
 go 1.24
 
