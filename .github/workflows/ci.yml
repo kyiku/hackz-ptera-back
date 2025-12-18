@@ -33,12 +33,14 @@ jobs:
         if: steps.check_go.outputs.has_go_files == 'true'
         run: go mod download
 
+      - name: Install golangci-lint
+        if: steps.check_go.outputs.has_go_files == 'true'
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+
       - name: Run linter
         if: steps.check_go.outputs.has_go_files == 'true'
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
+        run: golangci-lint run --timeout=5m
 
       - name: Run tests
         if: steps.check_go.outputs.has_go_files == 'true'
