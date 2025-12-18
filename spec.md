@@ -409,7 +409,7 @@ var fallbackMessages = []string{
 | ステージ | 再試行回数 | 失敗時の挙動 |
 |----------|------------|--------------|
 | **Dino Run** | 1回のみ | 即失敗、最後尾へ |
-| **CAPTCHA** | 3回まで | 同じ画像で再試行、3回失敗で最後尾へ |
+| **CAPTCHA** | 3回まで | 毎回新しい画像を生成、3回失敗で最後尾へ |
 | **魚OTP** | 3回まで | **毎回新しい魚**、3回失敗で最後尾へ |
 
 ## 13. エラーレスポンス形式
@@ -418,8 +418,9 @@ var fallbackMessages = []string{
 
 **成功時:**
 ```json
-{ "error": false, "data": {...} }
+{ "error": false, ... }
 ```
+※ 各エンドポイントごとに追加フィールドが直接含まれる（`data`でラップしない）
 
 **失敗時:**
 ```json
@@ -439,6 +440,12 @@ var fallbackMessages = []string{
 | **Allowed Methods** | GET, POST, OPTIONS |
 | **Allowed Headers** | Content-Type, Cookie |
 | **Credentials** | true（Cookie送信のため） |
+
+### 開発環境設定
+| 項目 | 値 |
+|------|-----|
+| **Allowed Origins** | http://localhost:5173 |
+| **備考** | 本番環境ではCloudFrontドメインに変更 |
 
 ---
 

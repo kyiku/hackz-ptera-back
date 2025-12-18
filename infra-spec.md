@@ -300,22 +300,22 @@ jobs:
 ## 7. 構築手順
 
 ### Phase 1: 事前準備
-1. [ ] AWS CLIのセットアップ
-2. [ ] GitHub Secretsの設定（AWS認証情報）
+1. [x] AWS CLIのセットアップ
+2. [x] GitHub Secretsの設定（AWS認証情報）
 
 ### Phase 2: インフラ構築
-1. [ ] VPC/Subnet/Security Group作成
-2. [ ] ALB作成
-3. [ ] ECRリポジトリ作成
-4. [ ] ECSクラスター/サービス作成
-5. [ ] S3バケット作成（Assets + Frontend）
-6. [ ] CloudFront作成（S3 + ALBオリジン）
-7. [ ] IAMロール作成
+1. [x] VPC/Subnet/Security Group作成
+2. [x] ALB作成
+3. [x] ECRリポジトリ作成
+4. [x] ECSクラスター/サービス作成
+5. [x] S3バケット作成（Assets + Frontend）
+6. [x] CloudFront作成（S3 + ALBオリジン）
+7. [x] IAMロール作成
 
 ### Phase 3: CI/CD設定
-1. [ ] Dockerfile作成
-2. [ ] GitHub Actionsワークフロー作成
-3. [ ] 初回デプロイテスト
+1. [x] Dockerfile作成
+2. [x] GitHub Actionsワークフロー作成
+3. [x] 初回デプロイテスト
 
 ### Phase 4: 後片付け（ハッカソン終了後）
 1. [ ] CloudFront削除
