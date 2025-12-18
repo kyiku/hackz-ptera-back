@@ -15,14 +15,16 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
-	// Routes
-	e.GET("/", func(c echo.Context) error {
+	// Health check (root level for ALB)
+	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
-			"message": "Hello, World!",
+			"status": "ok",
 		})
 	})
 
-	e.GET("/health", func(c echo.Context) error {
+	// API routes
+	api := e.Group("/api")
+	api.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
 			"status": "ok",
 		})
