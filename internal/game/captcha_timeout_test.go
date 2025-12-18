@@ -21,7 +21,7 @@ func TestCaptchaTimeout_Start(t *testing.T) {
 	}{
 		{
 			name:        "正常系: CAPTCHAステージでタイマー開始",
-			userStatus:  "stage2_captcha",
+			userStatus:  "registering",
 			timeout:     100 * time.Millisecond,
 			wantRunning: true,
 		},
@@ -63,7 +63,7 @@ func TestCaptchaTimeout_Cancel(t *testing.T) {
 			mockConn := testutil.NewMockWebSocketConn()
 			user := &model.User{
 				ID:     "user1",
-				Status: "stage2_captcha",
+				Status: "registering",
 				Conn:   mockConn,
 			}
 
@@ -110,7 +110,7 @@ func TestCaptchaTimeout_Expire(t *testing.T) {
 
 			user := &model.User{
 				ID:     "user1",
-				Status: "stage2_captcha",
+				Status: "registering",
 				Conn:   mockConn,
 			}
 
@@ -130,7 +130,7 @@ func TestCaptchaTimeout_Expire(t *testing.T) {
 
 			assert.Equal(t, tt.wantMessageType, msg["type"])
 			assert.Contains(t, msg["message"], "タイムアウト")
-			assert.Equal(t, float64(3), msg["redirect_delay"])
+			assert.Equal(t, float64(3), msg["redirectDelay"])
 
 			// 接続が閉じられたことを確認
 			assert.Equal(t, tt.wantConnClosed, mockConn.IsClosed)
@@ -157,7 +157,7 @@ func TestCaptchaTimeout_MultipleUsers(t *testing.T) {
 		mockConns[i] = testutil.NewMockWebSocketConn()
 		users[i] = &model.User{
 			ID:     fmt.Sprintf("user%d", i),
-			Status: "stage2_captcha",
+			Status: "registering",
 			Conn:   mockConns[i],
 		}
 		timeouts[i] = NewCaptchaTimeout(users[i], 50*time.Millisecond)

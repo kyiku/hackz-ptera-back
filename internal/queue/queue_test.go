@@ -147,7 +147,7 @@ func TestWaitingQueue_BroadcastPositions(t *testing.T) {
 		msg := conn.GetLastMessageAsMap()
 		require.NotNil(t, msg)
 
-		assert.Equal(t, "queue_update", msg["type"])
+		assert.Equal(t, "queueUpdate", msg["type"])
 		assert.Equal(t, float64(i+1), msg["position"])
 		assert.Equal(t, float64(3), msg["total"])
 	}

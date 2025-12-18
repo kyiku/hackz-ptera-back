@@ -134,7 +134,7 @@ func TestWebSocketHandler_QueueUpdate(t *testing.T) {
 			msg := mockConns[tt.userPosition].GetLastMessageAsMap()
 			require.NotNil(t, msg)
 
-			assert.Equal(t, "queue_update", msg["type"])
+			assert.Equal(t, "queueUpdate", msg["type"])
 			assert.Equal(t, float64(tt.wantPosition), msg["position"])
 			assert.Equal(t, float64(tt.wantTotal), msg["total"])
 		})

@@ -45,16 +45,13 @@ func TestUser_StatusTransitions(t *testing.T) {
 	}{
 		// 正常な遷移
 		{name: "waiting -> stage1_dino", fromStatus: "waiting", toStatus: "stage1_dino", wantValid: true},
-		{name: "stage1_dino -> stage2_captcha", fromStatus: "stage1_dino", toStatus: "stage2_captcha", wantValid: true},
-		{name: "stage2_captcha -> registering", fromStatus: "stage2_captcha", toStatus: "registering", wantValid: true},
+		{name: "stage1_dino -> registering", fromStatus: "stage1_dino", toStatus: "registering", wantValid: true},
 		{name: "registering -> waiting (失敗時)", fromStatus: "registering", toStatus: "waiting", wantValid: true},
 		{name: "stage1_dino -> waiting (失敗時)", fromStatus: "stage1_dino", toStatus: "waiting", wantValid: true},
-		{name: "stage2_captcha -> waiting (失敗時)", fromStatus: "stage2_captcha", toStatus: "waiting", wantValid: true},
 
 		// 不正な遷移
 		{name: "waiting -> registering (不正)", fromStatus: "waiting", toStatus: "registering", wantValid: false},
-		{name: "stage1_dino -> registering (不正)", fromStatus: "stage1_dino", toStatus: "registering", wantValid: false},
-		{name: "waiting -> stage2_captcha (不正)", fromStatus: "waiting", toStatus: "stage2_captcha", wantValid: false},
+		{name: "registering -> stage1_dino (不正)", fromStatus: "registering", toStatus: "stage1_dino", wantValid: false},
 	}
 
 	for _, tt := range tests {

@@ -26,15 +26,8 @@ func TestStageTransition_ValidTransitions(t *testing.T) {
 			wantCode:   "",
 		},
 		{
-			name:       "stage1_dino -> stage2_captcha",
+			name:       "stage1_dino -> registering",
 			fromStatus: "stage1_dino",
-			toStatus:   "stage2_captcha",
-			wantValid:  true,
-			wantCode:   "",
-		},
-		{
-			name:       "stage2_captcha -> registering",
-			fromStatus: "stage2_captcha",
 			toStatus:   "registering",
 			wantValid:  true,
 			wantCode:   "",
@@ -47,6 +40,13 @@ func TestStageTransition_ValidTransitions(t *testing.T) {
 			wantCode:   "",
 		},
 		{
+			name:       "stage1_dino -> waiting（失敗時）",
+			fromStatus: "stage1_dino",
+			toStatus:   "waiting",
+			wantValid:  true,
+			wantCode:   "",
+		},
+		{
 			name:       "waiting -> registering（不正）",
 			fromStatus: "waiting",
 			toStatus:   "registering",
@@ -54,9 +54,9 @@ func TestStageTransition_ValidTransitions(t *testing.T) {
 			wantCode:   "INVALID_TRANSITION",
 		},
 		{
-			name:       "stage1_dino -> registering（不正）",
-			fromStatus: "stage1_dino",
-			toStatus:   "registering",
+			name:       "registering -> stage1_dino（不正）",
+			fromStatus: "registering",
+			toStatus:   "stage1_dino",
 			wantValid:  false,
 			wantCode:   "INVALID_TRANSITION",
 		},
@@ -92,21 +92,14 @@ func TestStageTransition_Execute(t *testing.T) {
 			name:          "waiting -> stage1_dino",
 			fromStatus:    "waiting",
 			toStatus:      "stage1_dino",
-			wantMsgType:   "stage_change",
+			wantMsgType:   "stageChange",
 			wantNextStage: "stage1_dino",
 		},
 		{
-			name:          "stage1_dino -> stage2_captcha",
+			name:          "stage1_dino -> registering",
 			fromStatus:    "stage1_dino",
-			toStatus:      "stage2_captcha",
-			wantMsgType:   "stage_change",
-			wantNextStage: "stage2_captcha",
-		},
-		{
-			name:          "stage2_captcha -> registering",
-			fromStatus:    "stage2_captcha",
 			toStatus:      "registering",
-			wantMsgType:   "stage_change",
+			wantMsgType:   "stageChange",
 			wantNextStage: "registering",
 		},
 	}
@@ -168,11 +161,6 @@ func TestStageTransition_WebSocketMessage(t *testing.T) {
 			wantMessage: "Dino Run ゲームを開始してください",
 		},
 		{
-			name:        "CAPTCHAステージ",
-			stage:       "stage2_captcha",
-			wantMessage: "CAPTCHAを解いてください",
-		},
-		{
 			name:        "登録ステージ",
 			stage:       "registering",
 			wantMessage: "登録フォームに入力してください",
@@ -207,10 +195,8 @@ func getPreviousStage(stage string) string {
 	switch stage {
 	case "stage1_dino":
 		return "waiting"
-	case "stage2_captcha":
-		return "stage1_dino"
 	case "registering":
-		return "stage2_captcha"
+		return "stage1_dino"
 	default:
 		return "waiting"
 	}

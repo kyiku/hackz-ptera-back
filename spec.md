@@ -1,11 +1,30 @@
-# バックエンド開発仕様書：The Frustrating Registration Form (AWS Edition) v6
+# バックエンド開発仕様書：The Frustrating Registration Form (AWS Edition) v7
 
 ## 1. プロジェクト概要
 ユーザーの忍耐力を極限まで試すジョークWebアプリケーション。
-ディズニーランド級の「待機列」の後、2段階のミニゲーム（アクション＆視覚テスト）をクリアしないと会員登録フォームに辿り着けない。
+ディズニーランド級の「待機列」の後、Dino Runゲームをクリアすると会員登録ダッシュボードに辿り着ける。
+登録ダッシュボードでは**9つの理不尽なタスク**（スロット式名前入力、瞬きモールス信号でメール入力等）を**任意の順序**でクリアする必要がある。
 どの段階で失敗しても、ペナルティとして待機列の最後尾からやり直しとなる。
 
 **鬼畜仕様:** すべての関門をクリアしても、最後に「サーバーエラー」で登録は永遠に完了しない。
+
+### ユーザーフロー概要
+```
+待機列 → Dino Run → 登録ダッシュボード（9タスク） → 登録失敗
+                         ↓
+            ┌────────────────────────────┐
+            │ 9つのタスク（順序自由）      │
+            │ ・名前（スロット）           │
+            │ ・生年月日（横スクロール）    │
+            │ ・電話番号（黒電話）         │
+            │ ・住所（ストリートビュー風）  │
+            │ ・メール（瞬きモールス信号）  │
+            │ ・利用規約（音声認識）       │
+            │ ・パスワード（AI煽り）       │
+            │ ・CAPTCHA（ウォーリー風）    │
+            │ ・OTP（魚画像）             │
+            └────────────────────────────┘
+```
 
 ## 2. 技術スタック
 * **言語:** Go (Latest) / Echo (v4)
@@ -46,9 +65,10 @@ type User struct {
 
 // Status Enum:
 // "waiting"         : 待機列で待機中
-// "stage1_dino"     : 第1関門 Dino Run プレイ中
-// "stage2_captcha"  : 第2関門 CAPTCHA プレイ中
-// "registering"     : 登録フォーム入力中 (クリア済)
+// "stage1_dino"     : Dino Run プレイ中
+// "registering"     : 登録ダッシュボード（9タスク実行中）
+//
+// ※ CAPTCHAとOTPは「registering」ステータス内で実行される登録タスクの一部
 ```
 
 ### セッション管理
@@ -88,8 +108,8 @@ type WaitingQueue struct {
 
 ```json
 // Server -> Client
-{ "type": "queue_update", "position": 5, "message": "現在5人待ちです..." }
-{ "type": "stage_change", "status": "stage1_dino", "message": "接続安定性を確認するためのテストを行います..." }
+{ "type": "queueUpdate", "position": 5, "message": "現在5人待ちです..." }
+{ "type": "stageChange", "status": "stage1_dino", "message": "接続安定性を確認するためのテストを行います..." }
 ```
 
 ### Phase 2: 第1関門 - Dino Run (アクション)
@@ -117,28 +137,29 @@ type WaitingQueue struct {
   * クライアントは3秒後に自動でトップページへリダイレクト。
   * **結果:** 待機列の最後尾へリセット。
 * **成功 (`survived: true`):**
-  * ユーザーのステータスを `stage2_captcha` に更新。
+  * ユーザーのステータスを `registering` に更新。
+  * 登録用トークン（UUID）を発行、有効期限10分。
 
 **Response (成功時):**
 ```json
-{ "error": false, "next_stage": "captcha", "message": "身体能力テスト合格。次は視力テストです。" }
+{ "error": false, "nextStage": "register", "token": "550e8400-e29b-41d4-a716-446655440000", "message": "身体能力テスト合格。登録ダッシュボードへどうぞ。" }
 ```
 
 **Response (失敗時):**
 ```json
-{ "error": true, "message": "ゲームオーバー。待機列の最後尾からやり直しです。", "redirect_delay": 3 }
+{ "error": true, "message": "ゲームオーバー。待機列の最後尾からやり直しです。", "redirectDelay": 3 }
 ```
 
-### Phase 3: 第2関門 - Impossible CAPTCHA
+### Phase 3: 登録ダッシュボード - CAPTCHA（9タスクの1つ）
 
-アクションゲームで疲れた目に追い打ちをかける。
+登録ダッシュボード内の検証タスク。ハブ＆スポーク形式で任意の順序で実行可能。
 
-* **タイムアウト:** 3分（時間切れで失敗扱い）
+* **タイムアウト:** なし（トークン有効期限10分以内に全タスク完了が必要）
 * **再試行:** 3回まで可能
 
 **Endpoint:** `GET /api/captcha/generate`
 
-* **前提:** Userのステータスが `stage2_captcha` であること。
+* **前提:** Userのステータスが `registering` であること。
 * **Logic:**
   * S3から背景画像をランダム取得 + 極小オリジナルキャラクターを合成。
   * 正解座標をUser構造体に保存。
@@ -147,7 +168,7 @@ type WaitingQueue struct {
 ```json
 {
   "error": false,
-  "image_url": "https://xxx.cloudfront.net/captcha/xxxxx.png",
+  "imageUrl": "https://xxx.cloudfront.net/captcha/xxxxx.png",
   "message": "画像の中に隠れているキャラクターをクリックしてください"
 }
 ```
@@ -174,12 +195,12 @@ type WaitingQueue struct {
   * クライアントは3秒後に自動でトップページへリダイレクト。
   * **ユーザー体験:** 「あと少しで登録できたのに、また150人待ちの最初から！？」
 * **成功:**
-  * ステータスを `registering` に更新。
-  * 登録用トークン（UUID）を発行、有効期限10分。
+  * CAPTCHAタスクを完了としてマーク。
+  * ダッシュボードに戻り、次のタスクへ。
 
 **Response (成功時):**
 ```json
-{ "error": false, "token": "550e8400-e29b-41d4-a716-446655440000", "message": "視力テスト合格！登録フォームへどうぞ。" }
+{ "error": false, "taskCompleted": "captcha", "message": "視力テスト合格！" }
 ```
 
 **Response (失敗時・1〜2回目):**
@@ -187,8 +208,8 @@ type WaitingQueue struct {
 {
   "error": true,
   "message": "不正解です。残り2回",
-  "attempts_remaining": 2,
-  "new_image_url": "https://xxx.cloudfront.net/captcha/newimage.png"
+  "attemptsRemaining": 2,
+  "newImageUrl": "https://xxx.cloudfront.net/captcha/newimage.png"
 }
 ```
 
@@ -197,17 +218,33 @@ type WaitingQueue struct {
 {
   "error": true,
   "message": "3回失敗しました。待機列の最後尾からやり直しです。",
-  "redirect_delay": 3
+  "redirectDelay": 3
 }
 ```
 
 ### Phase 4: 会員登録 (The Final Boss)
+
+登録ダッシュボードで9つのタスクをすべて完了後、登録ボタンを押すとこのAPIが呼ばれる。
 
 **Endpoint:** `POST /api/register`
 
 * トークン所有者のみアクセス可能。
 * トークンはSessionIDと紐付けて検証。
 * **トークン有効期限:** 10分（期限切れで待機列の最後尾へ）
+* **前提:** 9つのタスクがすべて完了していること。
+
+**9つの登録タスク（フロント側で管理）:**
+| ID | タスク名 | 入力方法 |
+|----|---------|---------|
+| name | 名前 | スロットマシンUI |
+| birthday | 生年月日 | 横スクロールバー |
+| phone | 電話番号 | 黒電話ダイヤルUI |
+| address | 住所 | ストリートビュー風 |
+| email | メールアドレス | 瞬きモールス信号 |
+| terms | 利用規約 | 音声認識読み上げ |
+| password | パスワード | AI煽り付き入力 |
+| captcha | CAPTCHA | ウォーリーを探せ風 |
+| otp | OTP | 魚画像名前当て |
 
 **Request:**
 ```json
@@ -218,10 +255,10 @@ type WaitingQueue struct {
   "password": "password123",
   "birthday": "1998-03-15",
   "phone": "090-1234-5678",
-  "address": "東京都渋谷区..."
+  "address": "東京都渋谷区...",
+  "termsAccepted": true
 }
 ```
-※ 詳細な入力項目は後で指定
 
 #### AIパスワード煽り (`POST /api/password/analyze`)
 
@@ -260,7 +297,7 @@ var fallbackMessages = []string{
 
 **POST /api/otp/send Response:**
 ```json
-{ "error": false, "image_url": "https://xxx.cloudfront.net/fish/onikamasu.jpg", "message": "この魚の名前を入力してください" }
+{ "error": false, "imageUrl": "https://xxx.cloudfront.net/fish/onikamasu.jpg", "message": "この魚の名前を入力してください" }
 ```
 
 **POST /api/otp/verify Request:**
@@ -278,8 +315,8 @@ var fallbackMessages = []string{
 {
   "error": true,
   "message": "不正解です。残り2回",
-  "attempts_remaining": 2,
-  "new_image_url": "https://xxx.cloudfront.net/fish/newfish.jpg"
+  "attemptsRemaining": 2,
+  "newImageUrl": "https://xxx.cloudfront.net/fish/newfish.jpg"
 }
 ```
 
@@ -288,7 +325,7 @@ var fallbackMessages = []string{
 {
   "error": true,
   "message": "3回失敗しました。待機列の最後尾からやり直しです。",
-  "redirect_delay": 3
+  "redirectDelay": 3
 }
 ```
 
@@ -300,7 +337,7 @@ var fallbackMessages = []string{
 {
   "error": true,
   "message": "サーバーエラーが発生しました。お手数ですが最初からやり直してください。",
-  "redirect_delay": 3
+  "redirectDelay": 3
 }
 ```
 
@@ -310,14 +347,25 @@ var fallbackMessages = []string{
 
 ## 6. クライアント(Front)への実装要求
 
+### 登録ダッシュボード（ハブ＆スポーク形式）
+* Dino Runクリア後、登録ダッシュボード画面を表示。
+* 9つのタスクをカード形式で表示（完了: ⚪︎、未完了: ❌）。
+* **タスクの実行順序は自由**（どのカードからでもクリック可能）。
+* 各タスク完了後、ダッシュボードに戻る。
+* 全9タスク完了で「登録する」ボタンが有効化。
+
 ### 戻るボタン無効化
-* ゲーム中に「戻る」を押したら、APIを叩かずに即座にトップページ（待機列）へ飛ばす。
+* ゲーム中（Dino Run）やタスク実行中に「戻る」を押したら、APIを叩かずに即座にトップページ（待機列）へ飛ばす。
 
 ### 恐怖の演出
-* 第2関門（CAPTCHA）の説明文に、赤文字で**「※失敗すると待機列の最後尾に戻ります」**と小さく表示し、プレッシャーを与える。
+* CAPTCHAタスクの説明文に、赤文字で**「※失敗すると待機列の最後尾に戻ります」**と小さく表示し、プレッシャーを与える。
 
 ### 失敗時の自動リダイレクト
-* `redirect_delay` が含まれるレスポンスを受け取ったら、指定秒数後にトップページへリダイレクト。
+* `redirectDelay` が含まれるレスポンスを受け取ったら、指定秒数後にトップページへリダイレクト。
+
+### スクロール挙動
+* 全ページでスクロールの慣性を無効化。
+* スクロール速度を重めに設定。
 
 ---
 
@@ -365,10 +413,10 @@ var fallbackMessages = []string{
 
 **Server → Client:**
 ```json
-{ "type": "queue_update", "position": 5, "total": 150 }
-{ "type": "stage_change", "status": "stage1_dino", "message": "..." }
+{ "type": "queueUpdate", "position": 5, "total": 150 }
+{ "type": "stageChange", "status": "stage1_dino", "message": "..." }
 { "type": "error", "code": "SESSION_EXPIRED", "message": "..." }
-{ "type": "failure", "message": "...", "redirect_delay": 3 }
+{ "type": "failure", "message": "...", "redirectDelay": 3 }
 ```
 
 **Client → Server:**
@@ -401,16 +449,18 @@ var fallbackMessages = []string{
 | ステージ | タイムアウト | 結果 |
 |----------|--------------|------|
 | **Dino Run** | 3分 | 失敗扱い、最後尾へ |
-| **CAPTCHA** | 3分 | 失敗扱い、最後尾へ |
-| **登録フォーム** | 10分（トークン有効期限） | 失敗扱い、最後尾へ |
+| **登録ダッシュボード** | 10分（トークン有効期限） | 失敗扱い、最後尾へ |
+
+※ 登録ダッシュボード内の個別タスク（CAPTCHA、OTP等）にはタイムアウトなし。全体で10分以内に完了が必要。
 
 ### 再試行
 
-| ステージ | 再試行回数 | 失敗時の挙動 |
-|----------|------------|--------------|
+| タスク | 再試行回数 | 失敗時の挙動 |
+|--------|------------|--------------|
 | **Dino Run** | 1回のみ | 即失敗、最後尾へ |
 | **CAPTCHA** | 3回まで | 毎回新しい画像を生成、3回失敗で最後尾へ |
 | **魚OTP** | 3回まで | **毎回新しい魚**、3回失敗で最後尾へ |
+| **その他の入力タスク** | 制限なし | 何度でもやり直し可能 |
 
 ## 13. エラーレスポンス形式
 
@@ -429,7 +479,7 @@ var fallbackMessages = []string{
 
 **リダイレクト付き失敗:**
 ```json
-{ "error": true, "message": "...", "redirect_delay": 3 }
+{ "error": true, "message": "...", "redirectDelay": 3 }
 ```
 
 ## 14. CORS設定

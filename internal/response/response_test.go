@@ -113,7 +113,7 @@ func TestResponse_Error(t *testing.T) {
 
 			assert.Equal(t, tt.wantError, resp["error"])
 			assert.Equal(t, tt.message, resp["message"])
-			assert.Nil(t, resp["redirect_delay"], "通常のエラーにはredirect_delayがないべき")
+			assert.Nil(t, resp["redirectDelay"], "通常のエラーにはredirectDelayがないべき")
 		})
 	}
 }
@@ -156,7 +156,7 @@ func TestResponse_ErrorWithRedirect(t *testing.T) {
 
 			assert.Equal(t, true, resp["error"])
 			assert.Equal(t, tt.message, resp["message"])
-			assert.Equal(t, tt.wantDelay, resp["redirect_delay"])
+			assert.Equal(t, tt.wantDelay, resp["redirectDelay"])
 		})
 	}
 }

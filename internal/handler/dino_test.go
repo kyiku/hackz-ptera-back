@@ -32,7 +32,7 @@ func TestDinoHandler_Result(t *testing.T) {
 			hasCookie:      true,
 			wantStatusCode: http.StatusOK,
 			wantError:      false,
-			wantNextStage:  "stage2_captcha",
+			wantNextStage:  "register",
 		},
 		{
 			name: "正常系: ゲームオーバー",
@@ -66,9 +66,9 @@ func TestDinoHandler_Result(t *testing.T) {
 			wantNextStage:  "",
 		},
 		{
-			name: "異常系: 不正なステータス（stage2_captcha）",
+			name: "異常系: 不正なステータス（registering）",
 			setupUser: func(u *model.User) {
-				u.Status = "stage2_captcha"
+				u.Status = "registering"
 			},
 			requestBody:    `{"result": "clear", "score": 1000}`,
 			hasCookie:      true,
@@ -119,7 +119,7 @@ func TestDinoHandler_Result(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantNextStage != "" {
-				assert.Equal(t, tt.wantNextStage, resp["next_stage"])
+				assert.Equal(t, tt.wantNextStage, resp["nextStage"])
 			}
 		})
 	}
@@ -146,5 +146,5 @@ func TestDinoHandler_Result_GameOver_QueueReset(t *testing.T) {
 	json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	assert.Equal(t, true, resp["error"])
-	assert.Equal(t, float64(3), resp["redirect_delay"])
+	assert.Equal(t, float64(3), resp["redirectDelay"])
 }

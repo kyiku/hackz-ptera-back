@@ -117,7 +117,7 @@ func TestRegisterHandler_Submit(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantRedirect {
-				assert.Equal(t, float64(3), resp["redirect_delay"])
+				assert.Equal(t, float64(3), resp["redirectDelay"])
 			}
 
 			if tt.wantConnClosed && mockConn != nil {
@@ -248,5 +248,5 @@ func TestRegisterHandler_WebSocketFailureMessage(t *testing.T) {
 	require.NotNil(t, msg, "WebSocketメッセージが送信されるべき")
 
 	assert.Equal(t, "failure", msg["type"])
-	assert.Equal(t, float64(3), msg["redirect_delay"])
+	assert.Equal(t, float64(3), msg["redirectDelay"])
 }

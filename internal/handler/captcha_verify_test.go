@@ -33,7 +33,7 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 		{
 			name: "正常系: 正確なクリック",
 			setupUser: func(u *model.User) {
-				u.Status = "stage2_captcha"
+				u.Status = "registering"
 				u.CaptchaTargetX = 512
 				u.CaptchaTargetY = 384
 				u.CaptchaAttempts = 0
@@ -46,12 +46,12 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 			hasCookie:      true,
 			wantStatusCode: http.StatusOK,
 			wantError:      false,
-			wantNextStage:  "registering",
+			wantNextStage:  "",
 		},
 		{
 			name: "正常系: 許容範囲内のクリック",
 			setupUser: func(u *model.User) {
-				u.Status = "stage2_captcha"
+				u.Status = "registering"
 				u.CaptchaTargetX = 512
 				u.CaptchaTargetY = 384
 				u.CaptchaAttempts = 0
@@ -64,12 +64,12 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 			hasCookie:      true,
 			wantStatusCode: http.StatusOK,
 			wantError:      false,
-			wantNextStage:  "registering",
+			wantNextStage:  "",
 		},
 		{
 			name: "異常系: 許容範囲外のクリック（1回目）",
 			setupUser: func(u *model.User) {
-				u.Status = "stage2_captcha"
+				u.Status = "registering"
 				u.CaptchaTargetX = 512
 				u.CaptchaTargetY = 384
 				u.CaptchaAttempts = 0
@@ -132,7 +132,7 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantNextStage != "" {
-				assert.Equal(t, tt.wantNextStage, resp["next_stage"])
+				assert.Equal(t, tt.wantNextStage, resp["nextStage"])
 			}
 		})
 	}
@@ -145,7 +145,7 @@ func TestCaptchaHandler_Verify_ThreeFailures(t *testing.T) {
 
 	mockConn := testutil.NewMockWebSocketConn()
 	user, sessionID := store.Create()
-	user.Status = "stage2_captcha"
+	user.Status = "registering"
 	user.CaptchaTargetX = 512
 	user.CaptchaTargetY = 384
 	user.CaptchaAttempts = 2 // 既に2回失敗
@@ -168,7 +168,7 @@ func TestCaptchaHandler_Verify_ThreeFailures(t *testing.T) {
 	json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	assert.Equal(t, true, resp["error"])
-	assert.Equal(t, float64(3), resp["redirect_delay"])
+	assert.Equal(t, float64(3), resp["redirectDelay"])
 
 	// WebSocket接続が閉じられることを確認
 	err = testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
@@ -200,7 +200,7 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			}
 
 			user, sessionID := store.Create()
-			user.Status = "stage2_captcha"
+			user.Status = "registering"
 			user.CaptchaTargetX = 512
 			user.CaptchaTargetY = 384
 			user.CaptchaAttempts = tt.currentAttempts
@@ -220,8 +220,8 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, true, resp["error"])
-			assert.Equal(t, float64(tt.wantRemaining), resp["attempts_remaining"])
-			assert.NotEmpty(t, resp["new_image_url"]) // 新しい画像URL
+			assert.Equal(t, float64(tt.wantRemaining), resp["attemptsRemaining"])
+			assert.NotEmpty(t, resp["newImageUrl"]) // 新しい画像URL
 		})
 	}
 }

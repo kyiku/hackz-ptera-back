@@ -24,7 +24,7 @@ func TestCaptchaHandler_Generate(t *testing.T) {
 		{
 			name: "正常系: CAPTCHA生成成功",
 			setupUser: func(u *model.User) {
-				u.Status = "stage2_captcha"
+				u.Status = "registering"
 			},
 			hasCookie:      true,
 			wantStatusCode: http.StatusOK,
@@ -95,8 +95,8 @@ func TestCaptchaHandler_Generate(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantImageURL {
-				imageURL, ok := resp["image_url"].(string)
-				assert.True(t, ok, "image_urlが存在するべき")
+				imageURL, ok := resp["imageUrl"].(string)
+				assert.True(t, ok, "imageUrlが存在するべき")
 				assert.Contains(t, imageURL, "cloudfront.net/captcha/")
 
 				// ターゲット座標が保存されていることを確認
@@ -116,7 +116,7 @@ func TestCaptchaHandler_Generate_TargetPosition(t *testing.T) {
 	}
 
 	user, sessionID := store.Create()
-	user.Status = "stage2_captcha"
+	user.Status = "registering"
 
 	h := NewCaptchaHandler(store, mockS3)
 

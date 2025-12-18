@@ -115,7 +115,7 @@ func TestDinoTimeout_Expire(t *testing.T) {
 
 			assert.Equal(t, tt.wantMessageType, msg["type"])
 			assert.Contains(t, msg["message"], "タイムアウト")
-			assert.Equal(t, float64(3), msg["redirect_delay"])
+			assert.Equal(t, float64(3), msg["redirectDelay"])
 
 			// 接続が閉じられたことを確認
 			assert.Equal(t, tt.wantConnClosed, mockConn.IsClosed)

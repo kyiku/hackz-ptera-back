@@ -35,7 +35,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 		},
 		{
 			name:           "CAPTCHA失敗",
-			userStatus:     "stage2_captcha",
+			userStatus:     "registering",
 			message:        "3回失敗しました。待機列の最後尾からやり直しです。",
 			wantMsgType:    "failure",
 			wantRedirect:   3,
@@ -82,7 +82,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 			require.NotNil(t, msg, "メッセージが受信されるべき")
 
 			assert.Equal(t, tt.wantMsgType, msg["type"])
-			assert.Equal(t, tt.wantRedirect, msg["redirect_delay"])
+			assert.Equal(t, tt.wantRedirect, msg["redirectDelay"])
 
 			// 待機列に追加、ステータスリセット
 			assert.Equal(t, tt.wantQueueLen, q.Len())
@@ -111,8 +111,8 @@ func TestFailureHandler_ResetUserState(t *testing.T) {
 			wantAllReset:    true,
 		},
 		{
-			name:            "stage2_captcha状態からリセット",
-			initialStatus:   "stage2_captcha",
+			name:            "registering状態からリセット（CAPTCHA失敗）",
+			initialStatus:   "registering",
 			captchaAttempts: 3,
 			otpAttempts:     0,
 			otpFishName:     "",

@@ -67,17 +67,6 @@ func TestOTPHandler_Send(t *testing.T) {
 			wantImageURL:   false,
 			wantFishSet:    false,
 		},
-		{
-			name: "異常系: stage2_captcha状態",
-			setupUser: func(u *model.User) {
-				u.Status = "stage2_captcha"
-			},
-			hasCookie:      true,
-			wantStatusCode: http.StatusForbidden,
-			wantError:      true,
-			wantImageURL:   false,
-			wantFishSet:    false,
-		},
 	}
 
 	for _, tt := range tests {
@@ -111,8 +100,8 @@ func TestOTPHandler_Send(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantImageURL {
-				imageURL, ok := resp["image_url"].(string)
-				assert.True(t, ok, "image_urlが存在するべき")
+				imageURL, ok := resp["imageUrl"].(string)
+				assert.True(t, ok, "imageUrlが存在するべき")
 				assert.Contains(t, imageURL, "cloudfront.net/fish/")
 				assert.NotEmpty(t, resp["message"])
 			}
@@ -277,13 +266,13 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 			assert.True(t, resp["error"].(bool))
 
 			if tt.wantNewImage {
-				remaining := int(resp["attempts_remaining"].(float64))
+				remaining := int(resp["attemptsRemaining"].(float64))
 				assert.Equal(t, tt.wantRemaining, remaining)
-				assert.NotEmpty(t, resp["new_image_url"])
+				assert.NotEmpty(t, resp["newImageUrl"])
 			}
 
 			if tt.wantRedirect {
-				assert.Equal(t, float64(3), resp["redirect_delay"])
+				assert.Equal(t, float64(3), resp["redirectDelay"])
 			}
 
 			if tt.wantConnClosed {
