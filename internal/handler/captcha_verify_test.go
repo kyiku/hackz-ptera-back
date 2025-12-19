@@ -221,7 +221,7 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			require.NoError(t, err)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, true, resp["error"])
 			assert.Equal(t, float64(tt.wantRemaining), resp["attempts_remaining"])
