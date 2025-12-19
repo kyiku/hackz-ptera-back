@@ -17,6 +17,21 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Error code constants for testing
+const (
+	ErrCodeSessionExpired = "SESSION_EXPIRED"
+	ErrCodeInvalidSession = "INVALID_SESSION"
+	ErrCodeTokenExpired   = "TOKEN_EXPIRED"
+	ErrCodeInternalError  = "INTERNAL_ERROR"
+)
+
+// Status constants for testing
+const (
+	StatusWaiting    = "waiting"
+	StatusStage1Dino = "stage1_dino"
+	StatusRegistering = "registering"
+)
+
 // MockWebSocketConn is a mock implementation of WebSocket connection for testing.
 type MockWebSocketConn struct {
 	mu          sync.Mutex
@@ -243,6 +258,23 @@ func NewTestContextWithJSON(method, path string, body interface{}) *TestContext 
 	tc := NewTestContext(method, path, bytes.NewReader(jsonBody))
 	tc.Request.Header.Set("Content-Type", "application/json")
 	return tc
+}
+
+// SetCookie adds a cookie to the test request.
+func (tc *TestContext) SetCookie(name, value string) {
+	tc.Request.AddCookie(&http.Cookie{Name: name, Value: value})
+}
+
+// GetResponseBody returns the response body as a map.
+func (tc *TestContext) GetResponseBody() map[string]interface{} {
+	var result map[string]interface{}
+	json.Unmarshal(tc.Recorder.Body.Bytes(), &result)
+	return result
+}
+
+// GetResponseCode returns the HTTP response status code.
+func (tc *TestContext) GetResponseCode() int {
+	return tc.Recorder.Code
 }
 
 // WaitFor waits for a condition to be true within timeout.
