@@ -116,7 +116,7 @@ func TestWebSocketHandler_QueueUpdate(t *testing.T) {
 			// ユーザーを追加
 			for i := 0; i < tt.usersInQueue; i++ {
 				mockConns[i] = testutil.NewMockWebSocketConn()
-				q.Add(&queue.QueueUser{
+				q.AddUser(&queue.QueueUser{
 					ID:   string(rune('a' + i)),
 					Conn: mockConns[i],
 				})
@@ -145,13 +145,12 @@ func TestWebSocketHandler_Disconnect(t *testing.T) {
 	store := session.NewSessionStore()
 	q := queue.NewWaitingQueue()
 
-	user, sessionID := store.Create()
+	user, _ := store.Create()
 	mockConn := testutil.NewMockWebSocketConn()
 
-	q.Add(&queue.QueueUser{
-		ID:        user.ID,
-		SessionID: sessionID,
-		Conn:      mockConn,
+	q.AddUser(&queue.QueueUser{
+		ID:   user.ID,
+		Conn: mockConn,
 	})
 
 	assert.Equal(t, 1, q.Len())

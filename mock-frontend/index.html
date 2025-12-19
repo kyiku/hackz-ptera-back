@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Frontend - API Test</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Ptera Registration (Mock)</h1>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span id="session-status">Session: Not Started</span>
+            <span id="user-status">Status: -</span>
+            <span id="queue-position">Queue: -</span>
+        </div>
+
+        <!-- Stage Container -->
+        <div class="stage-container">
+
+            <!-- Stage 0: Start -->
+            <section id="stage-start" class="stage active">
+                <h2>Welcome</h2>
+                <p>Click the button below to join the waiting queue.</p>
+                <button id="btn-start" class="btn btn-primary">Start Session</button>
+            </section>
+
+            <!-- Stage 1: Waiting Queue -->
+            <section id="stage-waiting" class="stage">
+                <h2>Waiting in Queue...</h2>
+                <div class="queue-display">
+                    <div class="queue-number" id="queue-number">-</div>
+                    <p>Your position in queue</p>
+                </div>
+                <button id="btn-advance-dino" class="btn btn-secondary">Advance to Dino Run (Debug)</button>
+            </section>
+
+            <!-- Stage 2: Dino Run -->
+            <section id="stage-dino" class="stage">
+                <h2>Stage 1: Dino Run</h2>
+                <div class="game-container">
+                    <div id="dino-game">
+                        <div id="dino"></div>
+                        <div id="obstacle"></div>
+                        <div id="ground"></div>
+                    </div>
+                    <p>Press SPACE to jump!</p>
+                    <div class="score">Score: <span id="dino-score">0</span></div>
+                </div>
+                <div class="game-controls">
+                    <button id="btn-dino-clear" class="btn btn-success">Send Clear Result</button>
+                    <button id="btn-dino-fail" class="btn btn-danger">Send Game Over</button>
+                </div>
+            </section>
+
+            <!-- Stage 3: CAPTCHA -->
+            <section id="stage-captcha" class="stage">
+                <h2>Stage 2: CAPTCHA</h2>
+                <p>Find and click on the hidden character!</p>
+                <div class="captcha-container">
+                    <div id="captcha-image" class="captcha-placeholder">
+                        [CAPTCHA Image Area]
+                        <br>Click anywhere to simulate
+                    </div>
+                </div>
+                <p>Attempts remaining: <span id="captcha-attempts">3</span></p>
+                <button id="btn-captcha-success" class="btn btn-success">Simulate Success</button>
+                <button id="btn-captcha-fail" class="btn btn-danger">Simulate Failure</button>
+            </section>
+
+            <!-- Stage 4: Registration Form -->
+            <section id="stage-register" class="stage">
+                <h2>Registration Form</h2>
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                <div id="register-result" class="result-box"></div>
+            </section>
+
+            <!-- Failure Screen -->
+            <section id="stage-failure" class="stage">
+                <h2>Oops!</h2>
+                <div class="failure-message" id="failure-message">
+                    Something went wrong...
+                </div>
+                <p>Redirecting to queue in <span id="redirect-countdown">3</span> seconds...</p>
+            </section>
+
+        </div>
+
+        <!-- API Log -->
+        <div class="log-container">
+            <h3>API Log</h3>
+            <div id="api-log"></div>
+            <button id="btn-clear-log" class="btn btn-small">Clear Log</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

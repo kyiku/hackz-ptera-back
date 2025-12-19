@@ -184,7 +184,7 @@ func TestRegisterToken_Monitor(t *testing.T) {
 
 			// WaitForで期限切れ処理完了を待機
 			err := testutil.WaitFor(200*time.Millisecond, 10*time.Millisecond, func() bool {
-				return mockConn.IsClosed
+				return mockConn.GetIsClosed()
 			})
 			require.NoError(t, err, "トークン期限切れ処理が完了しなかった")
 
@@ -194,7 +194,7 @@ func TestRegisterToken_Monitor(t *testing.T) {
 			assert.Equal(t, "TOKEN_EXPIRED", msg["code"])
 
 			// 接続が閉じられたことを確認
-			assert.Equal(t, tt.wantConnClosed, mockConn.IsClosed)
+			assert.Equal(t, tt.wantConnClosed, mockConn.GetIsClosed())
 
 			// 待機列に追加されたことを確認
 			if tt.wantQueueReset {
@@ -224,9 +224,9 @@ func TestRegisterToken_MonitorCancel(t *testing.T) {
 
 	// 期限切れ時間が過ぎても接続が閉じられないことを確認
 	err := testutil.WaitFor(200*time.Millisecond, 10*time.Millisecond, func() bool {
-		return mockConn.IsClosed
+		return mockConn.GetIsClosed()
 	})
 	// エラーになることを期待（接続が閉じられていない）
 	assert.Error(t, err, "監視キャンセル後は接続が閉じられないべき")
-	assert.False(t, mockConn.IsClosed)
+	assert.False(t, mockConn.GetIsClosed())
 }

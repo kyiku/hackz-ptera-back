@@ -77,7 +77,7 @@ func TestCaptchaTimeout_Cancel(t *testing.T) {
 
 			// WaitForで接続状態を確認（閉じていないことを確認）
 			err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-				return mockConn.IsClosed == tt.wantConnClosed
+				return mockConn.GetIsClosed() == tt.wantConnClosed
 			})
 			require.NoError(t, err, "接続状態が期待通りにならなかった")
 		})
@@ -120,7 +120,7 @@ func TestCaptchaTimeout_Expire(t *testing.T) {
 
 			// WaitForでタイムアウト処理完了を待機
 			err := testutil.WaitFor(200*time.Millisecond, 10*time.Millisecond, func() bool {
-				return mockConn.IsClosed
+				return mockConn.GetIsClosed()
 			})
 			require.NoError(t, err, "タイムアウト処理が完了しなかった")
 
@@ -133,7 +133,7 @@ func TestCaptchaTimeout_Expire(t *testing.T) {
 			assert.Equal(t, float64(3), msg["redirectDelay"])
 
 			// 接続が閉じられたことを確認
-			assert.Equal(t, tt.wantConnClosed, mockConn.IsClosed)
+			assert.Equal(t, tt.wantConnClosed, mockConn.GetIsClosed())
 
 			// 待機列に追加されたことを確認
 			if tt.wantQueueReset {
@@ -173,7 +173,7 @@ func TestCaptchaTimeout_MultipleUsers(t *testing.T) {
 	err := testutil.WaitFor(200*time.Millisecond, 10*time.Millisecond, func() bool {
 		allClosed := true
 		for _, conn := range mockConns {
-			if !conn.IsClosed {
+			if !conn.GetIsClosed() {
 				allClosed = false
 			}
 		}

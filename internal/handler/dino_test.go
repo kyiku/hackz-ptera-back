@@ -114,7 +114,7 @@ func TestDinoHandler_Result(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -143,7 +143,7 @@ func TestDinoHandler_Result_GameOver_QueueReset(t *testing.T) {
 	require.NoError(t, err)
 
 	var resp map[string]interface{}
-	json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	assert.Equal(t, true, resp["error"])
 	assert.Equal(t, float64(3), resp["redirectDelay"])

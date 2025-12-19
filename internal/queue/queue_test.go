@@ -34,7 +34,7 @@ func TestWaitingQueue_Add(t *testing.T) {
 
 			for i := 0; i < tt.addCount; i++ {
 				mockConn := testutil.NewMockWebSocketConn()
-				q.Add(&QueueUser{
+				q.AddUser(&QueueUser{
 					ID:   string(rune('a' + i)),
 					Conn: mockConn,
 				})
@@ -49,9 +49,9 @@ func TestWaitingQueue_Remove(t *testing.T) {
 	q := NewWaitingQueue()
 
 	mockConn := testutil.NewMockWebSocketConn()
-	q.Add(&QueueUser{ID: "user1", Conn: mockConn})
-	q.Add(&QueueUser{ID: "user2", Conn: testutil.NewMockWebSocketConn()})
-	q.Add(&QueueUser{ID: "user3", Conn: testutil.NewMockWebSocketConn()})
+	q.AddUser(&QueueUser{ID: "user1", Conn: mockConn})
+	q.AddUser(&QueueUser{ID: "user2", Conn: testutil.NewMockWebSocketConn()})
+	q.AddUser(&QueueUser{ID: "user3", Conn: testutil.NewMockWebSocketConn()})
 
 	assert.Equal(t, 3, q.Len())
 
@@ -108,7 +108,7 @@ func TestWaitingQueue_GetPosition(t *testing.T) {
 			q := NewWaitingQueue()
 
 			for i := 0; i < tt.totalUsers; i++ {
-				q.Add(&QueueUser{
+				q.AddUser(&QueueUser{
 					ID:   "user" + string(rune('0'+i)),
 					Conn: testutil.NewMockWebSocketConn(),
 				})
@@ -128,7 +128,7 @@ func TestWaitingQueue_BroadcastPositions(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		mockConns[i] = testutil.NewMockWebSocketConn()
-		q.Add(&QueueUser{
+		q.AddUser(&QueueUser{
 			ID:   "user" + string(rune('0'+i)),
 			Conn: mockConns[i],
 		})
@@ -156,9 +156,9 @@ func TestWaitingQueue_BroadcastPositions(t *testing.T) {
 func TestWaitingQueue_PopFront(t *testing.T) {
 	q := NewWaitingQueue()
 
-	q.Add(&QueueUser{ID: "user1", Conn: testutil.NewMockWebSocketConn()})
-	q.Add(&QueueUser{ID: "user2", Conn: testutil.NewMockWebSocketConn()})
-	q.Add(&QueueUser{ID: "user3", Conn: testutil.NewMockWebSocketConn()})
+	q.AddUser(&QueueUser{ID: "user1", Conn: testutil.NewMockWebSocketConn()})
+	q.AddUser(&QueueUser{ID: "user2", Conn: testutil.NewMockWebSocketConn()})
+	q.AddUser(&QueueUser{ID: "user3", Conn: testutil.NewMockWebSocketConn()})
 
 	// 先頭を取り出し
 	user := q.PopFront()
@@ -189,7 +189,7 @@ func TestWaitingQueue_Concurrent(t *testing.T) {
 			userID := "user" + string(rune('0'+id%10))
 			conn := testutil.NewMockWebSocketConn()
 
-			q.Add(&QueueUser{ID: userID, Conn: conn})
+			q.AddUser(&QueueUser{ID: userID, Conn: conn})
 
 			// 少し待ってから位置を取得
 			time.Sleep(time.Millisecond)
