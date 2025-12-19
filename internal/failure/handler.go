@@ -27,7 +27,7 @@ func NewFailureHandler(queue QueueInterface) *FailureHandler {
 func (h *FailureHandler) HandleFailure(user *model.User, message string) error {
 	// Send failure message via WebSocket
 	if user.Conn != nil {
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":           "failure",
 			"message":        message,
 			"redirect_delay": float64(3),
@@ -44,7 +44,7 @@ func (h *FailureHandler) HandleFailure(user *model.User, message string) error {
 
 	// Close connection after sending message
 	if user.Conn != nil {
-		user.Conn.Close()
+		_ = user.Conn.Close()
 	}
 
 	return nil

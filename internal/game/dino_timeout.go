@@ -82,7 +82,7 @@ func (t *DinoTimeout) handleTimeout() {
 
 	// Send failure message
 	if user.Conn != nil {
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":           "failure",
 			"message":        "タイムアウト！待機列の最後尾からやり直しです。",
 			"redirect_delay": float64(3),
@@ -99,6 +99,6 @@ func (t *DinoTimeout) handleTimeout() {
 
 	// Close connection
 	if user.Conn != nil {
-		user.Conn.Close()
+		_ = user.Conn.Close()
 	}
 }

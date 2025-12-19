@@ -48,7 +48,7 @@ func (m *TransitionManager) Execute(user *model.User, toStatus string) error {
 			message = "ステージが変更されました"
 		}
 
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":    "stage_change",
 			"stage":   toStatus,
 			"message": message,

@@ -121,7 +121,7 @@ func (m *MockWebSocketConn) GetLastMessageAsMap() map[string]interface{} {
 	}
 
 	var result map[string]interface{}
-	json.Unmarshal(m.LastMessage, &result)
+	_ = json.Unmarshal(m.LastMessage, &result)
 	return result
 }
 
@@ -268,7 +268,7 @@ func (tc *TestContext) SetCookie(name, value string) {
 // GetResponseBody returns the response body as a map.
 func (tc *TestContext) GetResponseBody() map[string]interface{} {
 	var result map[string]interface{}
-	json.Unmarshal(tc.Recorder.Body.Bytes(), &result)
+	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &result)
 	return result
 }
 
@@ -305,7 +305,7 @@ func WaitForMessage(conn *MockWebSocketConn, timeout time.Duration) map[string]i
 		conn.mu.Lock()
 		if conn.LastMessage != nil {
 			var msg map[string]interface{}
-			json.Unmarshal(conn.LastMessage, &msg)
+			_ = json.Unmarshal(conn.LastMessage, &msg)
 			conn.mu.Unlock()
 			return msg
 		}
@@ -353,7 +353,7 @@ func CreateTestPNG(width, height int) []byte {
 	}
 
 	var buf bytes.Buffer
-	png.Encode(&buf, img)
+	_ = png.Encode(&buf, img)
 	return buf.Bytes()
 }
 
@@ -374,7 +374,7 @@ func CreateTestJPEG(width, height int) []byte {
 	}
 
 	var buf bytes.Buffer
-	jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80})
+	_ = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80})
 	return buf.Bytes()
 }
 

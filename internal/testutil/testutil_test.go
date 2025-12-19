@@ -118,7 +118,7 @@ func TestTestContext_SetCookie(t *testing.T) {
 func TestTestContext_GetResponseBody(t *testing.T) {
 	tc := NewTestContext(http.MethodGet, "/test", nil)
 	tc.Recorder.WriteHeader(http.StatusOK)
-	tc.Recorder.Write([]byte(`{"status":"ok"}`))
+	_, _ = tc.Recorder.Write([]byte(`{"status":"ok"}`))
 
 	body := tc.GetResponseBody()
 	assert.Equal(t, "ok", body["status"])

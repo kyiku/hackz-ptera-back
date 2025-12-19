@@ -89,7 +89,7 @@ func TestCORSMiddleware_InvalidOrigin(t *testing.T) {
 		return c.String(http.StatusOK, "ok")
 	})
 
-	handler(tc.Context)
+	_ = handler(tc.Context)
 
 	// 不正なオリジンにはCORSヘッダーが設定されない
 	allowOrigin := tc.Recorder.Header().Get("Access-Control-Allow-Origin")

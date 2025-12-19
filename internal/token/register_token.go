@@ -115,11 +115,11 @@ func (m *TokenMonitor) watchUser(user *model.User, stopCh chan struct{}) {
 func (m *TokenMonitor) handleExpiration(user *model.User) {
 	// Send notification via WebSocket
 	if user.Conn != nil {
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"code":    "TOKEN_EXPIRED",
 			"message": "登録トークンの有効期限が切れました",
 		})
-		user.Conn.Close()
+		_ = user.Conn.Close()
 	}
 
 	// Reset user to waiting status

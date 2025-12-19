@@ -163,7 +163,7 @@ func (h *OTPHandler) Verify(c echo.Context) error {
 func (h *OTPHandler) handleMaxAttempts(c echo.Context, user *model.User) error {
 	// Send failure notification via WebSocket
 	if user.Conn != nil {
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":           "failure",
 			"message":        "魚の名前を3回間違えました。",
 			"redirect_delay": float64(3),

@@ -80,7 +80,7 @@ func (h *RegisterHandler) Submit(c echo.Context) error {
 func (h *RegisterHandler) handleFakeServerError(c echo.Context, user *model.User) error {
 	// Send failure notification via WebSocket
 	if user.Conn != nil {
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":           "failure",
 			"message":        "サーバーエラーが発生しました。待機列の最後尾からやり直しです。",
 			"redirect_delay": float64(3),

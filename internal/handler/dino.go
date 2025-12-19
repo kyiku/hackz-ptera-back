@@ -79,7 +79,7 @@ func (h *DinoHandler) Result(c echo.Context) error {
 
 	// Send failure notification via WebSocket
 	if user.Conn != nil {
-		user.Conn.WriteJSON(map[string]interface{}{
+		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":           "failure",
 			"message":        "ゲームオーバー。待機列の最後尾からやり直しです。",
 			"redirect_delay": float64(3),

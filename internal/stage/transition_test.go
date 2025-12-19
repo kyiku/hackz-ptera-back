@@ -189,7 +189,7 @@ func TestStageTransition_WebSocketMessage(t *testing.T) {
 			}
 
 			manager := NewTransitionManager()
-			manager.Execute(user, tt.stage)
+			_ = manager.Execute(user, tt.stage)
 
 			err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
 				return mockConn.LastMessage != nil
