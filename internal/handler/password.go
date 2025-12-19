@@ -15,9 +15,8 @@ type BedrockClientInterface interface {
 
 // PasswordHandler handles password analysis requests.
 type PasswordHandler struct {
-	store           SessionStoreInterface
-	bedrockClient   *ai.BedrockClient
-	fallbackEnabled bool
+	store         SessionStoreInterface
+	bedrockClient *ai.BedrockClient
 }
 
 // NewPasswordHandler creates a new PasswordHandler.
