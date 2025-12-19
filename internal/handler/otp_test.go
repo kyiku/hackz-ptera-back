@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/queue"
-	"github.com/kyiku/hackz-ptera-back/internal/session"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/queue"
+	"hackz-ptera/back/internal/session"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,7 +106,7 @@ func TestOTPHandler_Send(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -186,7 +186,7 @@ func TestOTPHandler_Verify_Success(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 		})
@@ -272,7 +272,7 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.True(t, resp["error"].(bool))
 
@@ -289,7 +289,7 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 			if tt.wantConnClosed {
 				// WaitForで接続が閉じられることを確認
 				err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-					return mockConn.IsClosed
+					return mockConn.GetIsClosed()
 				})
 				require.NoError(t, err, "WebSocket接続が閉じられるべき")
 			}

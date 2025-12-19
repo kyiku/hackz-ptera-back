@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/session"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/session"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -114,7 +114,7 @@ func TestPasswordHandler_Analyze(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -142,7 +142,7 @@ func TestPasswordHandler_Analyze_BedrockPrompt(t *testing.T) {
 	tc.Request.Header.Set("Content-Type", "application/json")
 	tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
 
-	h.Analyze(tc.Context)
+	_ = h.Analyze(tc.Context)
 
 	// プロンプトにパスワードが含まれていることを確認
 	assert.Contains(t, mockBedrock.LastPrompt, "mySecretPass123")
@@ -173,7 +173,7 @@ func TestPasswordHandler_Analyze_Fallback(t *testing.T) {
 	assert.Equal(t, http.StatusOK, tc.Recorder.Code)
 
 	var resp map[string]interface{}
-	json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	// フォールバックメッセージが返される
 	assert.False(t, resp["error"].(bool))

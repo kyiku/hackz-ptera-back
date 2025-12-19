@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/queue"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/queue"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -73,7 +73,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 
 			// WaitForで接続が閉じられることを確認
 			err = testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-				return mockConn.IsClosed
+				return mockConn.GetIsClosed()
 			})
 			require.NoError(t, err, "WebSocket接続が閉じられるべき")
 
@@ -137,11 +137,11 @@ func TestFailureHandler_ResetUserState(t *testing.T) {
 			}
 
 			handler := NewFailureHandler(q)
-			handler.HandleFailure(user, "失敗")
+			_ = handler.HandleFailure(user, "失敗")
 
 			// WaitForで処理完了を待機
 			err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-				return mockConn.IsClosed
+				return mockConn.GetIsClosed()
 			})
 			require.NoError(t, err)
 
@@ -182,7 +182,7 @@ func TestFailureHandler_MultipleUsers(t *testing.T) {
 	err := testutil.WaitFor(200*time.Millisecond, 10*time.Millisecond, func() bool {
 		allClosed := true
 		for _, conn := range mockConns {
-			if !conn.IsClosed {
+			if !conn.GetIsClosed() {
 				allClosed = false
 			}
 		}

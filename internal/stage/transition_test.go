@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -189,7 +189,7 @@ func TestStageTransition_WebSocketMessage(t *testing.T) {
 			}
 
 			manager := NewTransitionManager()
-			manager.Execute(user, tt.stage)
+			_ = manager.Execute(user, tt.stage)
 
 			err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
 				return mockConn.LastMessage != nil

@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/queue"
-	"github.com/kyiku/hackz-ptera-back/internal/session"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/queue"
+	"hackz-ptera/back/internal/session"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -103,6 +103,10 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
+			mockS3.Objects = map[string][]byte{
+				"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
+				"character/char.png":  testutil.CreateTestPNG(8, 8),
+			}
 
 			var sessionID string
 			var user *model.User
@@ -127,7 +131,7 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -165,14 +169,14 @@ func TestCaptchaHandler_Verify_ThreeFailures(t *testing.T) {
 	require.NoError(t, err)
 
 	var resp map[string]interface{}
-	json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	assert.Equal(t, true, resp["error"])
 	assert.Equal(t, float64(3), resp["redirect_delay"])
 
 	// WebSocket接続が閉じられることを確認
 	err = testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-		return mockConn.IsClosed
+		return mockConn.GetIsClosed()
 	})
 	require.NoError(t, err)
 
@@ -217,7 +221,7 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			require.NoError(t, err)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, true, resp["error"])
 			assert.Equal(t, float64(tt.wantRemaining), resp["attempts_remaining"])

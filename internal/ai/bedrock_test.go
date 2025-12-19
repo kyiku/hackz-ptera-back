@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -97,7 +97,7 @@ func TestBedrockClient_Prompt(t *testing.T) {
 			mockBedrock.Response = `{"content":[{"text":"分析結果"}]}`
 
 			client := NewBedrockClient(mockBedrock, "ap-northeast-1")
-			client.AnalyzePassword(tt.password)
+			_, _ = client.AnalyzePassword(tt.password)
 
 			for _, want := range tt.wantInPrompt {
 				assert.Contains(t, mockBedrock.LastPrompt, want)
@@ -111,7 +111,7 @@ func TestBedrockClient_ModelID(t *testing.T) {
 	mockBedrock.Response = `{"content":[{"text":"結果"}]}`
 
 	client := NewBedrockClient(mockBedrock, "ap-northeast-1")
-	client.AnalyzePassword("test")
+	_, _ = client.AnalyzePassword("test")
 
 	// Claude 3 Haikuモデルが使用されていることを確認
 	assert.Contains(t, mockBedrock.LastModelID, "claude-3-haiku")

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/queue"
-	"github.com/kyiku/hackz-ptera-back/internal/session"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/queue"
+	"hackz-ptera/back/internal/session"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -112,7 +112,7 @@ func TestRegisterHandler_Submit(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -122,7 +122,7 @@ func TestRegisterHandler_Submit(t *testing.T) {
 
 			if tt.wantConnClosed && mockConn != nil {
 				err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-					return mockConn.IsClosed
+					return mockConn.GetIsClosed()
 				})
 				require.NoError(t, err, "WebSocket接続が閉じられるべき")
 			}
@@ -174,7 +174,7 @@ func TestRegisterHandler_AlwaysFails(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, tc.Recorder.Code)
 
 		var resp map[string]interface{}
-		json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+		_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 		assert.True(t, resp["error"].(bool))
 		assert.Contains(t, resp["message"], "サーバーエラー")
@@ -205,7 +205,7 @@ func TestRegisterHandler_QueueReset(t *testing.T) {
 	tc.Request.Header.Set("Content-Type", "application/json")
 	tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
 
-	h.Submit(tc.Context)
+	_ = h.Submit(tc.Context)
 
 	// 待機列に追加されたことを確認
 	err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
@@ -241,7 +241,7 @@ func TestRegisterHandler_WebSocketFailureMessage(t *testing.T) {
 	tc.Request.Header.Set("Content-Type", "application/json")
 	tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
 
-	h.Submit(tc.Context)
+	_ = h.Submit(tc.Context)
 
 	// WebSocket経由でfailureメッセージが送信されることを確認
 	msg := testutil.WaitForMessage(mockConn, 100*time.Millisecond)

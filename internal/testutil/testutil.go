@@ -17,6 +17,21 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Error code constants for testing
+const (
+	ErrCodeSessionExpired = "SESSION_EXPIRED"
+	ErrCodeInvalidSession = "INVALID_SESSION"
+	ErrCodeTokenExpired   = "TOKEN_EXPIRED"
+	ErrCodeInternalError  = "INTERNAL_ERROR"
+)
+
+// Status constants for testing
+const (
+	StatusWaiting    = "waiting"
+	StatusStage1Dino = "stage1_dino"
+	StatusRegistering = "registering"
+)
+
 // MockWebSocketConn is a mock implementation of WebSocket connection for testing.
 type MockWebSocketConn struct {
 	mu          sync.Mutex
@@ -89,6 +104,13 @@ func (m *MockWebSocketConn) Close() error {
 	return nil
 }
 
+// GetIsClosed returns the closed state of the connection in a thread-safe manner.
+func (m *MockWebSocketConn) GetIsClosed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.IsClosed
+}
+
 // GetMessages returns all messages sent through this connection.
 func (m *MockWebSocketConn) GetMessages() [][]byte {
 	m.mu.Lock()
@@ -106,7 +128,7 @@ func (m *MockWebSocketConn) GetLastMessageAsMap() map[string]interface{} {
 	}
 
 	var result map[string]interface{}
-	json.Unmarshal(m.LastMessage, &result)
+	_ = json.Unmarshal(m.LastMessage, &result)
 	return result
 }
 
@@ -245,6 +267,23 @@ func NewTestContextWithJSON(method, path string, body interface{}) *TestContext 
 	return tc
 }
 
+// SetCookie adds a cookie to the test request.
+func (tc *TestContext) SetCookie(name, value string) {
+	tc.Request.AddCookie(&http.Cookie{Name: name, Value: value})
+}
+
+// GetResponseBody returns the response body as a map.
+func (tc *TestContext) GetResponseBody() map[string]interface{} {
+	var result map[string]interface{}
+	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &result)
+	return result
+}
+
+// GetResponseCode returns the HTTP response status code.
+func (tc *TestContext) GetResponseCode() int {
+	return tc.Recorder.Code
+}
+
 // WaitFor waits for a condition to be true within timeout.
 func WaitFor(timeout, interval time.Duration, condition func() bool) error {
 	deadline := time.Now().Add(timeout)
@@ -273,7 +312,7 @@ func WaitForMessage(conn *MockWebSocketConn, timeout time.Duration) map[string]i
 		conn.mu.Lock()
 		if conn.LastMessage != nil {
 			var msg map[string]interface{}
-			json.Unmarshal(conn.LastMessage, &msg)
+			_ = json.Unmarshal(conn.LastMessage, &msg)
 			conn.mu.Unlock()
 			return msg
 		}
@@ -292,7 +331,7 @@ func WaitForMessages(conn *MockWebSocketConn, n int, timeout time.Duration) []ma
 			result := make([]map[string]interface{}, len(conn.Messages))
 			for i, msg := range conn.Messages {
 				var m map[string]interface{}
-				json.Unmarshal(msg, &m)
+				_ = json.Unmarshal(msg, &m)
 				result[i] = m
 			}
 			conn.mu.Unlock()
@@ -321,7 +360,7 @@ func CreateTestPNG(width, height int) []byte {
 	}
 
 	var buf bytes.Buffer
-	png.Encode(&buf, img)
+	_ = png.Encode(&buf, img)
 	return buf.Bytes()
 }
 
@@ -342,7 +381,7 @@ func CreateTestJPEG(width, height int) []byte {
 	}
 
 	var buf bytes.Buffer
-	jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80})
+	_ = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80})
 	return buf.Bytes()
 }
 
@@ -367,6 +406,6 @@ func CreateTestImage(width, height int) image.Image {
 // AssertJSONResponse parses JSON response and returns as map.
 func AssertJSONResponse(rec *httptest.ResponseRecorder) map[string]interface{} {
 	var result map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &result)
+	_ = json.Unmarshal(rec.Body.Bytes(), &result)
 	return result
 }

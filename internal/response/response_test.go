@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +51,7 @@ func TestResponse_Success(t *testing.T) {
 			assert.Equal(t, http.StatusOK, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, false, resp["error"])
 			for _, field := range tt.wantFields {
@@ -109,7 +109,7 @@ func TestResponse_Error(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 			assert.Equal(t, tt.message, resp["message"])
@@ -152,7 +152,7 @@ func TestResponse_ErrorWithRedirect(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, true, resp["error"])
 			assert.Equal(t, tt.message, resp["message"])
@@ -202,7 +202,7 @@ func TestResponse_ErrorWithCode(t *testing.T) {
 			assert.Equal(t, tt.statusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, true, resp["error"])
 			assert.Equal(t, tt.wantCode, resp["code"])
@@ -214,7 +214,7 @@ func TestResponse_ErrorWithCode(t *testing.T) {
 func TestResponse_ContentType(t *testing.T) {
 	tc := testutil.NewTestContext(http.MethodGet, "/", nil)
 
-	Success(tc.Context, map[string]interface{}{"test": true})
+	_ = Success(tc.Context, map[string]interface{}{"test": true})
 
 	contentType := tc.Recorder.Header().Get("Content-Type")
 	assert.Contains(t, contentType, "application/json")
