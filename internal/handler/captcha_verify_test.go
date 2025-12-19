@@ -103,6 +103,10 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
+			mockS3.Objects = map[string][]byte{
+				"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
+				"character/char.png":  testutil.CreateTestPNG(8, 8),
+			}
 
 			var sessionID string
 			var user *model.User

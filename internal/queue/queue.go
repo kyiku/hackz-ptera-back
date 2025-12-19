@@ -4,13 +4,13 @@ package queue
 import (
 	"sync"
 
-	"hackz-ptera/back/internal/testutil"
+	"hackz-ptera/back/internal/model"
 )
 
 // QueueUser represents a user in the waiting queue.
 type QueueUser struct {
 	ID   string
-	Conn *testutil.MockWebSocketConn // WebSocket connection (mock for testing)
+	Conn model.WebSocketConn // WebSocket connection
 }
 
 // WaitingQueue manages users waiting in line.
@@ -26,8 +26,15 @@ func NewWaitingQueue() *WaitingQueue {
 	}
 }
 
-// Add adds a user to the end of the queue.
-func (q *WaitingQueue) Add(user *QueueUser) {
+// Add adds a user to the end of the queue by userID and connection.
+func (q *WaitingQueue) Add(userID string, conn model.WebSocketConn) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.users = append(q.users, &QueueUser{ID: userID, Conn: conn})
+}
+
+// AddUser adds a QueueUser to the end of the queue.
+func (q *WaitingQueue) AddUser(user *QueueUser) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.users = append(q.users, user)

@@ -21,6 +21,13 @@ const MaxCaptchaAttempts = 3
 // MaxOTPAttempts is the maximum number of OTP attempts allowed.
 const MaxOTPAttempts = 3
 
+// WebSocketConn defines the interface for WebSocket connections.
+type WebSocketConn interface {
+	WriteMessage(messageType int, data []byte) error
+	WriteJSON(v interface{}) error
+	Close() error
+}
+
 // User represents a user in the system.
 type User struct {
 	ID        string    // UUID
@@ -40,6 +47,9 @@ type User struct {
 	// Registration fields
 	RegisterToken    string    // Registration token (UUID)
 	RegisterTokenExp time.Time // Token expiration time (10 minutes)
+
+	// WebSocket connection
+	Conn WebSocketConn // WebSocket connection for real-time communication
 }
 
 // NewUser creates a new User with default values.
