@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )

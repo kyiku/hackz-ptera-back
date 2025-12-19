@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/testutil"
+	"hackz-ptera/back/internal/model"
+	"hackz-ptera/back/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
