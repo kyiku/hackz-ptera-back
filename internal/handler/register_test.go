@@ -112,7 +112,7 @@ func TestRegisterHandler_Submit(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -174,7 +174,7 @@ func TestRegisterHandler_AlwaysFails(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, tc.Recorder.Code)
 
 		var resp map[string]interface{}
-		json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+		_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 		assert.True(t, resp["error"].(bool))
 		assert.Contains(t, resp["message"], "サーバーエラー")

@@ -114,7 +114,7 @@ func TestPasswordHandler_Analyze(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -173,7 +173,7 @@ func TestPasswordHandler_Analyze_Fallback(t *testing.T) {
 	assert.Equal(t, http.StatusOK, tc.Recorder.Code)
 
 	var resp map[string]interface{}
-	json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	// フォールバックメッセージが返される
 	assert.False(t, resp["error"].(bool))
