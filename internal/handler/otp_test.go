@@ -106,7 +106,7 @@ func TestOTPHandler_Send(t *testing.T) {
 			assert.Equal(t, tt.wantStatusCode, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
@@ -186,7 +186,7 @@ func TestOTPHandler_Verify_Success(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, tt.wantError, resp["error"])
 		})
@@ -272,7 +272,7 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, tc.Recorder.Code)
 
 			var resp map[string]interface{}
-			json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.True(t, resp["error"].(bool))
 
