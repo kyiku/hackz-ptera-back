@@ -142,7 +142,7 @@ func TestPasswordHandler_Analyze_BedrockPrompt(t *testing.T) {
 	tc.Request.Header.Set("Content-Type", "application/json")
 	tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
 
-	h.Analyze(tc.Context)
+	_ = h.Analyze(tc.Context)
 
 	// プロンプトにパスワードが含まれていることを確認
 	assert.Contains(t, mockBedrock.LastPrompt, "mySecretPass123")

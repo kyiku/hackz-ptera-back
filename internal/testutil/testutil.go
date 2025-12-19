@@ -324,7 +324,7 @@ func WaitForMessages(conn *MockWebSocketConn, n int, timeout time.Duration) []ma
 			result := make([]map[string]interface{}, len(conn.Messages))
 			for i, msg := range conn.Messages {
 				var m map[string]interface{}
-				json.Unmarshal(msg, &m)
+				_ = json.Unmarshal(msg, &m)
 				result[i] = m
 			}
 			conn.mu.Unlock()
@@ -399,6 +399,6 @@ func CreateTestImage(width, height int) image.Image {
 // AssertJSONResponse parses JSON response and returns as map.
 func AssertJSONResponse(rec *httptest.ResponseRecorder) map[string]interface{} {
 	var result map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &result)
+	_ = json.Unmarshal(rec.Body.Bytes(), &result)
 	return result
 }

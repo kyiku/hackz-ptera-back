@@ -137,7 +137,7 @@ func TestFailureHandler_ResetUserState(t *testing.T) {
 			}
 
 			handler := NewFailureHandler(q)
-			handler.HandleFailure(user, "失敗")
+			_ = handler.HandleFailure(user, "失敗")
 
 			// WaitForで処理完了を待機
 			err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {

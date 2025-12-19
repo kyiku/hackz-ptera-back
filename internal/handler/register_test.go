@@ -205,7 +205,7 @@ func TestRegisterHandler_QueueReset(t *testing.T) {
 	tc.Request.Header.Set("Content-Type", "application/json")
 	tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
 
-	h.Submit(tc.Context)
+	_ = h.Submit(tc.Context)
 
 	// 待機列に追加されたことを確認
 	err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
@@ -241,7 +241,7 @@ func TestRegisterHandler_WebSocketFailureMessage(t *testing.T) {
 	tc.Request.Header.Set("Content-Type", "application/json")
 	tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
 
-	h.Submit(tc.Context)
+	_ = h.Submit(tc.Context)
 
 	// WebSocket経由でfailureメッセージが送信されることを確認
 	msg := testutil.WaitForMessage(mockConn, 100*time.Millisecond)
