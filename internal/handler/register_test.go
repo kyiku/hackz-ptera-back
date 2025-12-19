@@ -122,7 +122,7 @@ func TestRegisterHandler_Submit(t *testing.T) {
 
 			if tt.wantConnClosed && mockConn != nil {
 				err := testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-					return mockConn.IsClosed
+					return mockConn.GetIsClosed()
 				})
 				require.NoError(t, err, "WebSocket接続が閉じられるべき")
 			}

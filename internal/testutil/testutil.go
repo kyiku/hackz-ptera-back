@@ -104,6 +104,13 @@ func (m *MockWebSocketConn) Close() error {
 	return nil
 }
 
+// GetIsClosed returns the closed state of the connection in a thread-safe manner.
+func (m *MockWebSocketConn) GetIsClosed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.IsClosed
+}
+
 // GetMessages returns all messages sent through this connection.
 func (m *MockWebSocketConn) GetMessages() [][]byte {
 	m.mu.Lock()

@@ -176,7 +176,7 @@ func TestCaptchaHandler_Verify_ThreeFailures(t *testing.T) {
 
 	// WebSocket接続が閉じられることを確認
 	err = testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
-		return mockConn.IsClosed
+		return mockConn.GetIsClosed()
 	})
 	require.NoError(t, err)
 
