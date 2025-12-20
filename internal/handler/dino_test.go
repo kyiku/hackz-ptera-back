@@ -119,7 +119,7 @@ func TestDinoHandler_Result(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantNextStage != "" {
-				assert.Equal(t, tt.wantNextStage, resp["nextStage"])
+				assert.Equal(t, tt.wantNextStage, resp["next_stage"])
 			}
 		})
 	}
@@ -146,5 +146,5 @@ func TestDinoHandler_Result_GameOver_QueueReset(t *testing.T) {
 	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	assert.Equal(t, true, resp["error"])
-	assert.Equal(t, float64(3), resp["redirectDelay"])
+	assert.Equal(t, float64(3), resp["redirect_delay"])
 }

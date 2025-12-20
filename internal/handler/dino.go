@@ -64,12 +64,12 @@ func (h *DinoHandler) Result(c echo.Context) error {
 
 	// Handle result
 	if req.Result == "clear" {
-		// Success - advance to CAPTCHA stage
-		user.Status = model.StatusStage2Captcha
+		// Success - advance to registration dashboard (hub & spoke)
+		user.Status = model.StatusRegistering
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":      false,
-			"next_stage": "stage2_captcha",
-			"message":    "ゲームクリア！CAPTCHAステージに進みます",
+			"next_stage": "register",
+			"message":    "ゲームクリア！登録フォームに進みます",
 			"score":      req.Score,
 		})
 	}

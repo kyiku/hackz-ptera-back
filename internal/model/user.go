@@ -64,8 +64,8 @@ func NewUser() *User {
 // validTransitions defines allowed status transitions.
 var validTransitions = map[string][]string{
 	StatusWaiting:       {StatusStage1Dino},
-	StatusStage1Dino:    {StatusStage2Captcha, StatusWaiting},
-	StatusStage2Captcha: {StatusRegistering, StatusWaiting},
+	StatusStage1Dino:    {StatusRegistering, StatusWaiting},
+	StatusStage2Captcha: {StatusRegistering, StatusWaiting}, // Legacy: kept for compatibility
 	StatusRegistering:   {StatusWaiting},
 }
 
