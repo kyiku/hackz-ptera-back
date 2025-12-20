@@ -1,10 +1,15 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/kyiku/hackz-ptera-back/internal/handler"
+	"github.com/kyiku/hackz-ptera-back/internal/queue"
+	"github.com/kyiku/hackz-ptera-back/internal/session"
 )
 
 func main() {
@@ -21,7 +26,19 @@ func main() {
 		},
 	}))
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowHeaders:     []string{"*"},
+		AllowCredentials: true,
+	}))
+
+	// Initialize dependencies
+	sessionStore := session.NewSessionStore()
+	waitingQueue := queue.NewWaitingQueue()
+
+	// Initialize handlers
+	wsHandler := handler.NewWebSocketHandler(sessionStore, waitingQueue)
 
 	// Health check (root level for ALB)
 	e.GET("/health", func(c echo.Context) error {
@@ -29,6 +46,9 @@ func main() {
 			"status": "ok",
 		})
 	})
+
+	// WebSocket endpoint
+	e.GET("/ws", wsHandler.Connect)
 
 	// API routes
 	api := e.Group("/api")
@@ -38,6 +58,20 @@ func main() {
 		})
 	})
 
+	// Queue status endpoint (for debugging)
+	api.GET("/queue/status", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"queue_length": waitingQueue.Len(),
+		})
+	})
+
+	// Get port from environment or default
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	// Start server
-	e.Logger.Fatal(e.Start(":8080"))
+	log.Printf("Starting server on :%s", port)
+	e.Logger.Fatal(e.Start(":" + port))
 }

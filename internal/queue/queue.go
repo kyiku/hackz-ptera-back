@@ -98,7 +98,7 @@ func (q *WaitingQueue) BroadcastPositions() {
 	for i, user := range q.users {
 		if user.Conn != nil {
 			_ = user.Conn.WriteJSON(map[string]interface{}{
-				"type":     "queue_update",
+				"type":     "queueUpdate",
 				"position": i + 1,
 				"total":    total,
 			})
