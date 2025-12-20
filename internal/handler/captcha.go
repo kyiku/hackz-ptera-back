@@ -3,6 +3,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 
@@ -96,6 +97,7 @@ func (h *CaptchaHandler) Generate(c echo.Context) error {
 	// Generate CAPTCHA image
 	result, err := h.generateCaptchaImage()
 	if err != nil {
+		log.Printf("[CaptchaHandler.Generate] GENERATION_FAILED: %v", err)
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "CAPTCHA生成に失敗しました",
