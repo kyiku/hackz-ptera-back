@@ -104,18 +104,22 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 		cookieSameSite = http.SameSiteNoneMode
 	}
 
+	// Prepare response headers for WebSocket upgrade
+	responseHeaders := http.Header{}
+
 	cookie, err := c.Cookie("session_id")
 	if err != nil || cookie == nil {
 		// Create new session
 		user, sessionID = h.store.Create()
-		c.SetCookie(&http.Cookie{
+		sessionCookie := &http.Cookie{
 			Name:     "session_id",
 			Value:    sessionID,
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   cookieSecure,
 			SameSite: cookieSameSite,
-		})
+		}
+		responseHeaders.Add("Set-Cookie", sessionCookie.String())
 	} else {
 		// Get existing session
 		var ok bool
@@ -123,19 +127,20 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 		if !ok {
 			// Session not found, create new one
 			user, sessionID = h.store.Create()
-			c.SetCookie(&http.Cookie{
+			sessionCookie := &http.Cookie{
 				Name:     "session_id",
 				Value:    sessionID,
 				Path:     "/",
 				HttpOnly: true,
 				Secure:   cookieSecure,
 				SameSite: cookieSameSite,
-			})
+			}
+			responseHeaders.Add("Set-Cookie", sessionCookie.String())
 		}
 	}
 
-	// Upgrade to WebSocket
-	wsConn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	// Upgrade to WebSocket with response headers
+	wsConn, err := upgrader.Upgrade(c.Response(), c.Request(), responseHeaders)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return err
@@ -145,8 +150,8 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 	conn := &WebSocketConn{conn: wsConn}
 	user.Conn = conn
 
-	// Add user to queue
-	h.queue.Add(user.ID, conn)
+	// Add user to queue (use SessionID to link back to session store)
+	h.queue.Add(user.SessionID, conn)
 	log.Printf("User %s connected, queue position: %d", user.ID, h.queue.Len())
 
 	// Broadcast positions to all users
@@ -177,8 +182,8 @@ func (h *WebSocketHandler) handleMessages(user *model.User, conn *WebSocketConn)
 	})
 
 	defer func() {
-		// Clean up on disconnect
-		h.queue.Remove(user.ID)
+		// Clean up on disconnect (use SessionID to match queue key)
+		h.queue.Remove(user.SessionID)
 		h.queue.BroadcastPositions()
 		conn.Close()
 		log.Printf("User %s disconnected", user.ID)
@@ -213,8 +218,15 @@ func (h *WebSocketHandler) PromoteFirstUser() *model.User {
 		return nil
 	}
 
-	// Get the full user from store by finding it
-	// Note: In a real implementation, you'd want to store user reference in QueueUser
+	// Get the user from session store and update their status
+	// queueUser.ID is actually the sessionID
+	user, ok := h.store.Get(queueUser.ID)
+	if ok {
+		user.Status = model.StatusStage1Dino
+		log.Printf("User %s promoted to stage1_dino", user.ID)
+	}
+
+	// Notify user via WebSocket
 	if queueUser.Conn != nil {
 		_ = queueUser.Conn.WriteJSON(map[string]interface{}{
 			"type":    "stage_change",
@@ -226,5 +238,5 @@ func (h *WebSocketHandler) PromoteFirstUser() *model.User {
 	// Broadcast updated positions to remaining users
 	h.queue.BroadcastPositions()
 
-	return nil
+	return user
 }
