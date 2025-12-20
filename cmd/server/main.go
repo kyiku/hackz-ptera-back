@@ -114,10 +114,15 @@ func main() {
 		},
 	}))
 	e.Use(middleware.Recover())
+	// CORS configuration - AllowOrigins cannot be "*" when AllowCredentials is true
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "http://localhost:5173"
+	}
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{corsOrigin, "https://d3qfj76e9d3p81.cloudfront.net"},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodOptions},
-		AllowHeaders:     []string{"*"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
 
