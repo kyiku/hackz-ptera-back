@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 )
 
 // BedrockClientInterface defines the interface for Bedrock client.
@@ -72,15 +74,21 @@ func (c *BedrockClient) AnalyzePassword(password string) (string, error) {
 
 // buildPrompt creates the prompt for password analysis.
 func (c *BedrockClient) buildPrompt(password string) string {
-	return fmt.Sprintf(`あなたはパスワードを分析する皮肉っぽいAIアシスタントです。
-ユーザーが入力したパスワードを見て、そのパスワードから推測できることを指摘してください。
-名前や生年月日、ペットの名前など、個人情報が含まれていそうな場合は指摘してください。
-弱いパスワードの場合は「弱いパスワード」という言葉を使って批評してください。
-強そうなパスワードでも何か意味がありそうなら推測してください。
+	return fmt.Sprintf(`あなたは辛口でちょっと意地悪なパスワード分析AIです。ユーザーを煽りながら、パスワードの危険性を指摘してください。
+
+パスワードに含まれる数字から誕生日を推測してください（例: 0315→3月15日生まれ？、19980101→1998年1月1日？）
+パスワードに含まれる英字から名前を推測してください（例: yuki→ゆきさん？、taro→たろうくん？）
+彼氏・彼女・ペットの名前かもしれないと言及してください。
+
+煽り方の例：
+- 「それ、SNSを3分見れば分かりますよ」
+- 「ハッカーが最初に試すパターンですね」
+- 「その程度のパスワード、私なら5秒で突破できます」
+- 「恋人の名前入れてません？バレバレですよ」
 
 パスワード: %s
 
-短く（1-2文で）日本語で回答してください。`, password)
+1-2文で、毒舌＆煽りを込めて日本語で回答してください。絶対に褒めないでください。`, password)
 }
 
 // parseResponse parses the Claude response JSON.
@@ -97,27 +105,65 @@ func (c *BedrockClient) parseResponse(response string) (string, error) {
 	return claudeResp.Content[0].Text, nil
 }
 
+// よくある名前パターン
+var commonNames = []string{
+	"yuki", "hana", "sora", "rin", "miku", "yui", "ai", "mei", "sakura", "taro",
+	"ken", "ryo", "yuto", "sota", "haruto", "takumi", "kenta", "daiki", "shota",
+	"love", "happy", "angel", "candy", "honey", "baby", "sweet", "cute", "princess",
+}
+
 // getFallbackMessage returns a fallback message when API fails.
 func (c *BedrockClient) getFallbackMessage(password string) string {
-	// Simple fallback analysis
+	lower := strings.ToLower(password)
+
+	// 誕生日パターン検出
+	birthdayPatterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?:19|20)(\d{2})(\d{2})(\d{2})`),
+		regexp.MustCompile(`(\d{2})(\d{2})(\d{2})`),
+		regexp.MustCompile(`(\d{2})(\d{2})$`),
+	}
+
+	for _, pattern := range birthdayPatterns {
+		if matches := pattern.FindStringSubmatch(password); matches != nil {
+			var month, day int
+			if len(matches) >= 3 {
+				fmt.Sscanf(matches[len(matches)-2], "%d", &month)
+				fmt.Sscanf(matches[len(matches)-1], "%d", &day)
+				if month >= 1 && month <= 12 && day >= 1 && day <= 31 {
+					return fmt.Sprintf("%d月%d日生まれですか？誕生日をパスワードに使うなんて、ハッカーに「突破してください」って言ってるようなものですよ。", month, day)
+				}
+			}
+		}
+	}
+
+	// 名前パターン検出
+	for _, name := range commonNames {
+		if strings.Contains(lower, name) {
+			return fmt.Sprintf("「%s」って入ってますね。恋人の名前？自分の名前？どちらにしても危険すぎます。SNSを3分見れば分かりますよ。", name)
+		}
+	}
+
+	// 英字の連続を名前として推測
+	namePattern := regexp.MustCompile(`[a-zA-Z]{3,}`)
+	if match := namePattern.FindString(password); match != "" {
+		return fmt.Sprintf("「%s」...誰かの名前ですか？名前ベースのパスワードは辞書攻撃で一瞬で破られますよ。", match)
+	}
+
+	// 数字だけ
+	if regexp.MustCompile(`^\d+$`).MatchString(password) {
+		return "数字だけ？電話番号ですか？10種類の文字しかないんですよ、論外です。"
+	}
+
+	// 短すぎる
 	if len(password) < 8 {
-		return "短すぎるパスワードです。もう少し長くしてください。"
+		return fmt.Sprintf("たった%d文字？それパスワードじゃなくて暗証番号ですよね？私なら3秒で突破できます。", len(password))
 	}
 
-	hasDigit := false
-	hasLetter := false
-	for _, r := range password {
-		if r >= '0' && r <= '9' {
-			hasDigit = true
-		}
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
-			hasLetter = true
-		}
+	// デフォルト
+	taunts := []string{
+		"そのパスワード、あなたの性格が透けて見えますね。面倒くさがり？",
+		"悪くはないですが、私なら24時間以内に突破できそうです。",
+		"人間が覚えられるパスワードは弱いんです。もっと意味不明にしてください。",
 	}
-
-	if !hasDigit || !hasLetter {
-		return "数字と文字を組み合わせてください。"
-	}
-
-	return "まあまあのパスワードですね。"
+	return taunts[len(password)%len(taunts)]
 }
