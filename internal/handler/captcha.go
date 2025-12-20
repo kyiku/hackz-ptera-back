@@ -67,34 +67,39 @@ func (h *CaptchaHandler) Generate(c echo.Context) error {
 	// Get session
 	cookie, err := c.Cookie("session_id")
 	if err != nil || cookie == nil {
-		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+		// CloudFrontのcustom_error_responseがHTMLを返すのを防ぐため、常に200を返す
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "セッションが見つかりません",
+			"code":    "SESSION_NOT_FOUND",
 		})
 	}
 
 	user, ok := h.store.Get(cookie.Value)
 	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "無効なセッション",
+			"code":    "INVALID_SESSION",
 		})
 	}
 
 	// Check user status - CAPTCHA is one of the 9 tasks in "registering" stage
 	if user.Status != "registering" {
-		return c.JSON(http.StatusForbidden, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "登録ステージではありません",
+			"code":    "WRONG_STAGE",
 		})
 	}
 
 	// Generate CAPTCHA image
 	result, err := h.generateCaptchaImage()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "CAPTCHA生成に失敗しました",
+			"code":    "GENERATION_FAILED",
 		})
 	}
 
@@ -120,26 +125,29 @@ func (h *CaptchaHandler) Verify(c echo.Context) error {
 	// Get session
 	cookie, err := c.Cookie("session_id")
 	if err != nil || cookie == nil {
-		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "セッションが見つかりません",
+			"code":    "SESSION_NOT_FOUND",
 		})
 	}
 
 	user, ok := h.store.Get(cookie.Value)
 	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "無効なセッション",
+			"code":    "INVALID_SESSION",
 		})
 	}
 
 	// Parse request
 	var req VerifyRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "リクエストの解析に失敗しました",
+			"code":    "BAD_REQUEST",
 		})
 	}
 
@@ -169,9 +177,10 @@ func (h *CaptchaHandler) Verify(c echo.Context) error {
 	// Generate new CAPTCHA for retry
 	newResult, err := h.generateCaptchaImage()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "CAPTCHA再生成に失敗しました",
+			"code":    "REGENERATION_FAILED",
 		})
 	}
 
