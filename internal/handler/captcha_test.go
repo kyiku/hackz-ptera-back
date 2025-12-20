@@ -66,8 +66,11 @@ func TestCaptchaHandler_Generate(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
 			mockS3.Objects = map[string][]byte{
-				"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-				"character/char.png":  testutil.CreateTestPNG(8, 8),
+				"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+				"character/char1.png":  testutil.CreateTestPNG(100, 100),
+				"character/char2.png":  testutil.CreateTestPNG(100, 100),
+				"character/char3.png":  testutil.CreateTestPNG(100, 100),
+				"character/char4.png":  testutil.CreateTestPNG(100, 100),
 			}
 
 			var sessionID string
@@ -95,8 +98,8 @@ func TestCaptchaHandler_Generate(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp["error"])
 
 			if tt.wantImageURL {
-				imageURL, ok := resp["imageUrl"].(string)
-				assert.True(t, ok, "imageUrlが存在するべき")
+				imageURL, ok := resp["image_url"].(string)
+				assert.True(t, ok, "image_urlが存在するべき")
 				assert.Contains(t, imageURL, "cloudfront.net/captcha/")
 
 				// ターゲット座標が保存されていることを確認
@@ -111,8 +114,11 @@ func TestCaptchaHandler_Generate_TargetPosition(t *testing.T) {
 	store := session.NewSessionStore()
 	mockS3 := testutil.NewMockS3Client()
 	mockS3.Objects = map[string][]byte{
-		"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-		"character/char.png":  testutil.CreateTestPNG(8, 8),
+		"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+		"character/char1.png":  testutil.CreateTestPNG(100, 100),
+		"character/char2.png":  testutil.CreateTestPNG(100, 100),
+		"character/char3.png":  testutil.CreateTestPNG(100, 100),
+		"character/char4.png":  testutil.CreateTestPNG(100, 100),
 	}
 
 	user, sessionID := store.Create()
@@ -126,9 +132,9 @@ func TestCaptchaHandler_Generate_TargetPosition(t *testing.T) {
 	err := h.Generate(tc.Context)
 	require.NoError(t, err)
 
-	// ターゲット座標が画像範囲内にあることを確認
+	// ターゲット座標が画像範囲内にあることを確認（中心座標）
 	assert.GreaterOrEqual(t, user.CaptchaTargetX, 0)
-	assert.Less(t, user.CaptchaTargetX, 1024)
+	assert.Less(t, user.CaptchaTargetX, 2816)
 	assert.GreaterOrEqual(t, user.CaptchaTargetY, 0)
-	assert.Less(t, user.CaptchaTargetY, 768)
+	assert.Less(t, user.CaptchaTargetY, 1536)
 }

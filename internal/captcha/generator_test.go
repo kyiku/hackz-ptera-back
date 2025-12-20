@@ -175,3 +175,78 @@ func TestCaptchaGenerator_CharacterSize(t *testing.T) {
 		assert.NoError(t, err, "サイズ%dのキャラクターで生成できるべき", size)
 	}
 }
+
+func TestCaptchaGenerator_GenerateMultiCharacter(t *testing.T) {
+	t.Run("正常系: 91枚配置", func(t *testing.T) {
+		mockS3 := testutil.NewMockS3Client()
+		mockS3.Objects = map[string][]byte{
+			"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+			"character/char1.png":  testutil.CreateTestPNG(100, 100),
+			"character/char2.png":  testutil.CreateTestPNG(100, 100),
+			"character/char3.png":  testutil.CreateTestPNG(100, 100),
+			"character/char4.png":  testutil.CreateTestPNG(100, 100),
+		}
+
+		gen := NewGenerator(mockS3, "https://test.cloudfront.net")
+		result, err := gen.GenerateMultiCharacter()
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// 画像サイズが背景と同じ
+		assert.Equal(t, 2816, result.Image.Bounds().Dx())
+		assert.Equal(t, 1536, result.Image.Bounds().Dy())
+
+		// ターゲット座標が有効範囲内（中心座標）
+		assert.GreaterOrEqual(t, result.TargetX, CharacterSize/2)
+		assert.Less(t, result.TargetX, 2816-CharacterSize/2)
+		assert.GreaterOrEqual(t, result.TargetY, CharacterSize/2)
+		assert.Less(t, result.TargetY, 1536-CharacterSize/2)
+
+		// ターゲットキーが設定されている
+		assert.NotEmpty(t, result.TargetKey)
+		assert.Contains(t, result.TargetKey, "character/")
+
+		// サイズ情報が設定されている
+		assert.Equal(t, CharacterSize, result.TargetWidth)
+		assert.Equal(t, CharacterSize, result.TargetHeight)
+	})
+
+	t.Run("異常系: キャラクターが4種類未満", func(t *testing.T) {
+		mockS3 := testutil.NewMockS3Client()
+		mockS3.Objects = map[string][]byte{
+			"backgrounds/bg1.png":  testutil.CreateTestPNG(1024, 768),
+			"character/char1.png":  testutil.CreateTestPNG(50, 50),
+			"character/char2.png":  testutil.CreateTestPNG(50, 50),
+			"character/char3.png":  testutil.CreateTestPNG(50, 50),
+			// 4つ目がない
+		}
+
+		gen := NewGenerator(mockS3, "https://test.cloudfront.net")
+		result, err := gen.GenerateMultiCharacter()
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "need at least 4 character types")
+	})
+}
+
+func TestResizeImage(t *testing.T) {
+	t.Run("正常系: 大きい画像を縮小", func(t *testing.T) {
+		src := testutil.CreateTestImage(540, 462)
+
+		result := resizeImage(src, 50, 50)
+
+		assert.Equal(t, 50, result.Bounds().Dx())
+		assert.Equal(t, 50, result.Bounds().Dy())
+	})
+
+	t.Run("正常系: 小さい画像を拡大", func(t *testing.T) {
+		src := testutil.CreateTestImage(10, 10)
+
+		result := resizeImage(src, 50, 50)
+
+		assert.Equal(t, 50, result.Bounds().Dx())
+		assert.Equal(t, 50, result.Bounds().Dy())
+	})
+}

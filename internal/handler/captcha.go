@@ -2,17 +2,12 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
-	"image"
-	"image/draw"
-	"image/png"
 	"math"
-	"math/rand"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/kyiku/hackz-ptera-back/internal/captcha"
 	"github.com/kyiku/hackz-ptera-back/internal/model"
 )
 
@@ -47,7 +42,7 @@ func NewCaptchaHandler(store SessionStoreInterface, s3Client S3ClientInterface) 
 	return &CaptchaHandler{
 		store:         store,
 		s3Client:      s3Client,
-		tolerance:     10, // default tolerance
+		tolerance:     25, // default tolerance (half of 50x50 character size)
 		cloudfrontURL: "https://test.cloudfront.net",
 	}
 }
@@ -60,6 +55,11 @@ func (h *CaptchaHandler) SetQueue(queue QueueInterfaceForCaptcha) {
 // SetTolerance sets the click tolerance in pixels.
 func (h *CaptchaHandler) SetTolerance(tolerance int) {
 	h.tolerance = tolerance
+}
+
+// SetCloudfrontURL sets the CloudFront URL for image delivery.
+func (h *CaptchaHandler) SetCloudfrontURL(url string) {
+	h.cloudfrontURL = url
 }
 
 // Generate creates a new CAPTCHA image.
@@ -81,16 +81,16 @@ func (h *CaptchaHandler) Generate(c echo.Context) error {
 		})
 	}
 
-	// Check user status
-	if user.Status != "stage2_captcha" {
+	// Check user status - CAPTCHA is one of the 9 tasks in "registering" stage
+	if user.Status != "registering" {
 		return c.JSON(http.StatusForbidden, map[string]interface{}{
 			"error":   true,
-			"message": "CAPTCHAステージではありません",
+			"message": "登録ステージではありません",
 		})
 	}
 
 	// Generate CAPTCHA image
-	imgURL, targetX, targetY, err := h.generateCaptchaImage()
+	result, err := h.generateCaptchaImage()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"error":   true,
@@ -99,12 +99,13 @@ func (h *CaptchaHandler) Generate(c echo.Context) error {
 	}
 
 	// Save target position
-	user.CaptchaTargetX = targetX
-	user.CaptchaTargetY = targetY
+	user.CaptchaTargetX = result.TargetX
+	user.CaptchaTargetY = result.TargetY
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"error":     false,
-		"image_url": imgURL,
+		"error":            false,
+		"image_url":        result.ImageURL,
+		"target_image_url": result.TargetImageURL,
 	})
 }
 
@@ -166,7 +167,7 @@ func (h *CaptchaHandler) Verify(c echo.Context) error {
 	}
 
 	// Generate new CAPTCHA for retry
-	newImgURL, targetX, targetY, err := h.generateCaptchaImage()
+	newResult, err := h.generateCaptchaImage()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"error":   true,
@@ -174,15 +175,16 @@ func (h *CaptchaHandler) Verify(c echo.Context) error {
 		})
 	}
 
-	user.CaptchaTargetX = targetX
-	user.CaptchaTargetY = targetY
+	user.CaptchaTargetX = newResult.TargetX
+	user.CaptchaTargetY = newResult.TargetY
 	remaining := model.MaxCaptchaAttempts - user.CaptchaAttempts
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"error":              true,
-		"message":            "不正解です。もう一度試してください",
-		"attempts_remaining": remaining,
-		"new_image_url":      newImgURL,
+		"error":                  true,
+		"message":                "不正解です。もう一度試してください",
+		"attempts_remaining":     remaining,
+		"new_image_url":          newResult.ImageURL,
+		"new_target_image_url":   newResult.TargetImageURL,
 	})
 }
 
@@ -217,73 +219,33 @@ func (h *CaptchaHandler) handleMaxAttempts(c echo.Context, user *model.User) err
 	})
 }
 
-// generateCaptchaImage creates a CAPTCHA image with hidden character.
-func (h *CaptchaHandler) generateCaptchaImage() (string, int, int, error) {
-	// Get background image
-	bgKeys, err := h.s3Client.ListObjects("backgrounds/")
-	if err != nil || len(bgKeys) == 0 {
-		return "", 0, 0, fmt.Errorf("failed to list backgrounds: %w", err)
-	}
+// CaptchaImageResult holds the result of CAPTCHA image generation.
+type CaptchaImageResult struct {
+	ImageURL       string
+	TargetImageURL string
+	TargetX        int
+	TargetY        int
+}
 
-	bgData, err := h.s3Client.GetObject(bgKeys[rand.Intn(len(bgKeys))])
+// generateCaptchaImage creates a CAPTCHA image with multiple characters.
+// Returns the image URL, target image URL, and target center coordinates.
+func (h *CaptchaHandler) generateCaptchaImage() (*CaptchaImageResult, error) {
+	gen := captcha.NewGenerator(h.s3Client, h.cloudfrontURL)
+
+	result, err := gen.GenerateMultiCharacter()
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to get background: %w", err)
+		return nil, fmt.Errorf("failed to generate captcha: %w", err)
 	}
 
-	bgImg, _, err := image.Decode(bytes.NewReader(bgData))
+	url, err := gen.Upload(result.Image)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to decode background: %w", err)
+		return nil, fmt.Errorf("failed to upload captcha: %w", err)
 	}
 
-	// Get character image
-	charData, err := h.s3Client.GetObject("character/char.png")
-	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to get character: %w", err)
-	}
-
-	charImg, _, err := image.Decode(bytes.NewReader(charData))
-	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to decode character: %w", err)
-	}
-
-	// Calculate random position
-	bgBounds := bgImg.Bounds()
-	charBounds := charImg.Bounds()
-
-	maxX := bgBounds.Dx() - charBounds.Dx()
-	maxY := bgBounds.Dy() - charBounds.Dy()
-
-	if maxX <= 0 {
-		maxX = 1
-	}
-	if maxY <= 0 {
-		maxY = 1
-	}
-
-	targetX := rand.Intn(maxX)
-	targetY := rand.Intn(maxY)
-
-	// Compose image
-	result := image.NewRGBA(bgBounds)
-	draw.Draw(result, bgBounds, bgImg, bgBounds.Min, draw.Src)
-
-	destRect := image.Rect(targetX, targetY, targetX+charBounds.Dx(), targetY+charBounds.Dy())
-	draw.Draw(result, destRect, charImg, charBounds.Min, draw.Over)
-
-	// Encode to PNG
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, result); err != nil {
-		return "", 0, 0, fmt.Errorf("failed to encode image: %w", err)
-	}
-
-	// Upload to S3
-	filename := uuid.New().String() + ".png"
-	key := "captcha/" + filename
-
-	if err := h.s3Client.PutObject(key, buf.Bytes()); err != nil {
-		return "", 0, 0, fmt.Errorf("failed to upload image: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/%s", h.cloudfrontURL, key)
-	return url, targetX, targetY, nil
+	return &CaptchaImageResult{
+		ImageURL:       url,
+		TargetImageURL: result.TargetImageURL,
+		TargetX:        result.TargetX,
+		TargetY:        result.TargetY,
+	}, nil
 }

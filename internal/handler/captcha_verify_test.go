@@ -104,8 +104,11 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
 			mockS3.Objects = map[string][]byte{
-				"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-				"character/char.png":  testutil.CreateTestPNG(8, 8),
+				"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+				"character/char1.png":  testutil.CreateTestPNG(100, 100),
+				"character/char2.png":  testutil.CreateTestPNG(100, 100),
+				"character/char3.png":  testutil.CreateTestPNG(100, 100),
+				"character/char4.png":  testutil.CreateTestPNG(100, 100),
 			}
 
 			var sessionID string
@@ -172,7 +175,7 @@ func TestCaptchaHandler_Verify_ThreeFailures(t *testing.T) {
 	_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 	assert.Equal(t, true, resp["error"])
-	assert.Equal(t, float64(3), resp["redirectDelay"])
+	assert.Equal(t, float64(3), resp["redirect_delay"])
 
 	// WebSocket接続が閉じられることを確認
 	err = testutil.WaitFor(100*time.Millisecond, 10*time.Millisecond, func() bool {
@@ -199,8 +202,11 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
 			mockS3.Objects = map[string][]byte{
-				"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-				"character/char.png":  testutil.CreateTestPNG(8, 8),
+				"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+				"character/char1.png":  testutil.CreateTestPNG(100, 100),
+				"character/char2.png":  testutil.CreateTestPNG(100, 100),
+				"character/char3.png":  testutil.CreateTestPNG(100, 100),
+				"character/char4.png":  testutil.CreateTestPNG(100, 100),
 			}
 
 			user, sessionID := store.Create()
@@ -224,8 +230,8 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
 
 			assert.Equal(t, true, resp["error"])
-			assert.Equal(t, float64(tt.wantRemaining), resp["attemptsRemaining"])
-			assert.NotEmpty(t, resp["newImageUrl"]) // 新しい画像URL
+			assert.Equal(t, float64(tt.wantRemaining), resp["attempts_remaining"])
+			assert.NotEmpty(t, resp["new_image_url"]) // 新しい画像URL
 		})
 	}
 }

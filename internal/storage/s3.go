@@ -63,9 +63,21 @@ func (c *S3Client) GetRandomBackgroundImage() (image.Image, error) {
 	return img, nil
 }
 
-// GetCharacterImage returns the character image.
+// GetCharacterImage returns a random character image.
 func (c *S3Client) GetCharacterImage() (image.Image, error) {
-	data, err := c.client.GetObject("character/char.png")
+	keys, err := c.client.ListObjects("character/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list character images: %w", err)
+	}
+
+	if len(keys) == 0 {
+		return nil, errors.New("no character images available")
+	}
+
+	// Select random character
+	randomKey := keys[rand.Intn(len(keys))]
+
+	data, err := c.client.GetObject(randomKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get character image: %w", err)
 	}
