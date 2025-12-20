@@ -98,7 +98,7 @@ func (g *Generator) Generate() (image.Image, int, int, error) {
 
 // getRandomBackgroundImage retrieves a random background image from S3.
 func (g *Generator) getRandomBackgroundImage() (image.Image, error) {
-	keys, err := g.s3Client.ListObjects("backgrounds/")
+	keys, err := g.s3Client.ListObjects("static/backgrounds/")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list backgrounds: %w", err)
 	}
@@ -125,7 +125,7 @@ func (g *Generator) getRandomBackgroundImage() (image.Image, error) {
 
 // getCharacterImage retrieves a random character image from S3.
 func (g *Generator) getCharacterImage() (image.Image, error) {
-	keys, err := g.s3Client.ListObjects("character/")
+	keys, err := g.s3Client.ListObjects("static/character/")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list characters: %w", err)
 	}
@@ -170,7 +170,7 @@ func (g *Generator) Compose(bg image.Image, char image.Image, x, y int) image.Im
 func (g *Generator) Upload(img image.Image) (string, error) {
 	// Generate unique filename
 	filename := uuid.New().String() + ".png"
-	key := "captcha/" + filename
+	key := "static/captcha/" + filename
 
 	// Encode image to PNG
 	var buf bytes.Buffer
@@ -268,7 +268,7 @@ func (g *Generator) GenerateMultiCharacter() (*GenerateResult, error) {
 
 // getAllCharacterImages retrieves all character images from S3 and resizes them.
 func (g *Generator) getAllCharacterImages() ([]CharacterInfo, error) {
-	keys, err := g.s3Client.ListObjects("character/")
+	keys, err := g.s3Client.ListObjects("static/character/")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list characters: %w", err)
 	}

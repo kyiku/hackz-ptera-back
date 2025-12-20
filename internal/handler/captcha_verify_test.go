@@ -104,11 +104,11 @@ func TestCaptchaHandler_Verify(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
 			mockS3.Objects = map[string][]byte{
-				"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
-				"character/char1.png":  testutil.CreateTestPNG(100, 100),
-				"character/char2.png":  testutil.CreateTestPNG(100, 100),
-				"character/char3.png":  testutil.CreateTestPNG(100, 100),
-				"character/char4.png":  testutil.CreateTestPNG(100, 100),
+				"static/backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+				"static/character/char1.png":  testutil.CreateTestPNG(100, 100),
+				"static/character/char2.png":  testutil.CreateTestPNG(100, 100),
+				"static/character/char3.png":  testutil.CreateTestPNG(100, 100),
+				"static/character/char4.png":  testutil.CreateTestPNG(100, 100),
 			}
 
 			var sessionID string
@@ -202,11 +202,11 @@ func TestCaptchaHandler_Verify_AttemptsRemaining(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
 			mockS3.Objects = map[string][]byte{
-				"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
-				"character/char1.png":  testutil.CreateTestPNG(100, 100),
-				"character/char2.png":  testutil.CreateTestPNG(100, 100),
-				"character/char3.png":  testutil.CreateTestPNG(100, 100),
-				"character/char4.png":  testutil.CreateTestPNG(100, 100),
+				"static/backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+				"static/character/char1.png":  testutil.CreateTestPNG(100, 100),
+				"static/character/char2.png":  testutil.CreateTestPNG(100, 100),
+				"static/character/char3.png":  testutil.CreateTestPNG(100, 100),
+				"static/character/char4.png":  testutil.CreateTestPNG(100, 100),
 			}
 
 			user, sessionID := store.Create()

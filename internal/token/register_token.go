@@ -125,14 +125,9 @@ func (m *TokenMonitor) handleExpiration(user *model.User) {
 	// Reset user to waiting status
 	user.ResetToWaiting()
 
-	// Add back to queue
-	m.mu.Lock()
-	queue := m.queue
-	m.mu.Unlock()
-
-	if queue != nil {
-		queue.Add(user.ID, user.Conn)
-	}
+	// Connection is already closed above
+	// Don't add to queue here - the user will be added when they reconnect via WebSocket
+	user.Conn = nil
 }
 
 // Unwatch stops monitoring a user's token.

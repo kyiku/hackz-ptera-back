@@ -36,8 +36,8 @@ func TestCaptchaGenerator_Generate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockS3 := testutil.NewMockS3Client()
 			mockS3.Objects = map[string][]byte{
-				"backgrounds/bg1.png": testutil.CreateTestPNG(tt.bgWidth, tt.bgHeight),
-				"character/char.png":  testutil.CreateTestPNG(tt.charWidth, tt.charHeight),
+				"static/backgrounds/bg1.png": testutil.CreateTestPNG(tt.bgWidth, tt.bgHeight),
+				"static/character/char.png":  testutil.CreateTestPNG(tt.charWidth, tt.charHeight),
 			}
 
 			gen := NewGenerator(mockS3, "https://test.cloudfront.net")
@@ -66,8 +66,8 @@ func TestCaptchaGenerator_Generate(t *testing.T) {
 func TestCaptchaGenerator_RandomPosition(t *testing.T) {
 	mockS3 := testutil.NewMockS3Client()
 	mockS3.Objects = map[string][]byte{
-		"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-		"character/char.png":  testutil.CreateTestPNG(8, 8),
+		"static/backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
+		"static/character/char.png":  testutil.CreateTestPNG(8, 8),
 	}
 
 	gen := NewGenerator(mockS3, "https://test.cloudfront.net")
@@ -88,8 +88,8 @@ func TestCaptchaGenerator_RandomPosition(t *testing.T) {
 func TestCaptchaGenerator_Upload(t *testing.T) {
 	mockS3 := testutil.NewMockS3Client()
 	mockS3.Objects = map[string][]byte{
-		"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-		"character/char.png":  testutil.CreateTestPNG(8, 8),
+		"static/backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
+		"static/character/char.png":  testutil.CreateTestPNG(8, 8),
 	}
 
 	gen := NewGenerator(mockS3, "https://test.cloudfront.net")
@@ -98,7 +98,7 @@ func TestCaptchaGenerator_Upload(t *testing.T) {
 	url, err := gen.Upload(img)
 
 	require.NoError(t, err)
-	assert.Contains(t, url, "https://test.cloudfront.net/captcha/")
+	assert.Contains(t, url, "https://test.cloudfront.net/static/captcha/")
 	assert.Contains(t, url, ".png")
 
 	// S3にアップロードされたことを確認
@@ -165,8 +165,8 @@ func TestCaptchaGenerator_CharacterSize(t *testing.T) {
 
 	for size := 5; size <= 8; size++ {
 		mockS3.Objects = map[string][]byte{
-			"backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
-			"character/char.png":  testutil.CreateTestPNG(size, size),
+			"static/backgrounds/bg1.png": testutil.CreateTestPNG(1024, 768),
+			"static/character/char.png":  testutil.CreateTestPNG(size, size),
 		}
 
 		gen := NewGenerator(mockS3, "https://test.cloudfront.net")
@@ -180,11 +180,11 @@ func TestCaptchaGenerator_GenerateMultiCharacter(t *testing.T) {
 	t.Run("正常系: 91枚配置", func(t *testing.T) {
 		mockS3 := testutil.NewMockS3Client()
 		mockS3.Objects = map[string][]byte{
-			"backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
-			"character/char1.png":  testutil.CreateTestPNG(100, 100),
-			"character/char2.png":  testutil.CreateTestPNG(100, 100),
-			"character/char3.png":  testutil.CreateTestPNG(100, 100),
-			"character/char4.png":  testutil.CreateTestPNG(100, 100),
+			"static/backgrounds/bg1.png":  testutil.CreateTestPNG(2816, 1536),
+			"static/character/char1.png":  testutil.CreateTestPNG(100, 100),
+			"static/character/char2.png":  testutil.CreateTestPNG(100, 100),
+			"static/character/char3.png":  testutil.CreateTestPNG(100, 100),
+			"static/character/char4.png":  testutil.CreateTestPNG(100, 100),
 		}
 
 		gen := NewGenerator(mockS3, "https://test.cloudfront.net")
@@ -205,7 +205,7 @@ func TestCaptchaGenerator_GenerateMultiCharacter(t *testing.T) {
 
 		// ターゲットキーが設定されている
 		assert.NotEmpty(t, result.TargetKey)
-		assert.Contains(t, result.TargetKey, "character/")
+		assert.Contains(t, result.TargetKey, "static/character/")
 
 		// サイズ情報が設定されている
 		assert.Equal(t, CharacterSize, result.TargetWidth)
@@ -215,10 +215,10 @@ func TestCaptchaGenerator_GenerateMultiCharacter(t *testing.T) {
 	t.Run("異常系: キャラクターが4種類未満", func(t *testing.T) {
 		mockS3 := testutil.NewMockS3Client()
 		mockS3.Objects = map[string][]byte{
-			"backgrounds/bg1.png":  testutil.CreateTestPNG(1024, 768),
-			"character/char1.png":  testutil.CreateTestPNG(50, 50),
-			"character/char2.png":  testutil.CreateTestPNG(50, 50),
-			"character/char3.png":  testutil.CreateTestPNG(50, 50),
+			"static/backgrounds/bg1.png":  testutil.CreateTestPNG(1024, 768),
+			"static/character/char1.png":  testutil.CreateTestPNG(50, 50),
+			"static/character/char2.png":  testutil.CreateTestPNG(50, 50),
+			"static/character/char3.png":  testutil.CreateTestPNG(50, 50),
 			// 4つ目がない
 		}
 

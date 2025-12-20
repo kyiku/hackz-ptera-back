@@ -196,10 +196,8 @@ func TestRegisterToken_Monitor(t *testing.T) {
 			// 接続が閉じられたことを確認
 			assert.Equal(t, tt.wantConnClosed, mockConn.GetIsClosed())
 
-			// 待機列に追加されたことを確認
-			if tt.wantQueueReset {
-				assert.Equal(t, 1, q.Len())
-			}
+			// 待機列には追加されない（ユーザーは再接続時に追加される）
+			assert.Equal(t, 0, q.Len())
 		})
 	}
 }

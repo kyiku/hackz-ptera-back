@@ -95,14 +95,14 @@ func (h *RegisterHandler) handleFakeServerError(c echo.Context, user *model.User
 	// Reset user state
 	user.ResetToWaiting()
 
-	// Add back to queue
-	if h.queue != nil {
-		h.queue.Add(user.ID, user.Conn)
-	}
-
-	// Close connection after sending message
+	// Close WebSocket connection - user needs to reconnect fresh
+	// Don't add to queue here - the user will be added when they reconnect via WebSocket
 	if user.Conn != nil {
-		go user.Conn.Close()
+		conn := user.Conn // Capture for goroutine
+		user.Conn = nil   // Clear the connection reference
+		go func() {
+			conn.Close()
+		}()
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

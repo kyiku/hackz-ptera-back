@@ -115,15 +115,13 @@ func TestDinoTimeout_Expire(t *testing.T) {
 
 			assert.Equal(t, tt.wantMessageType, msg["type"])
 			assert.Contains(t, msg["message"], "タイムアウト")
-			assert.Equal(t, float64(3), msg["redirectDelay"])
+			assert.Equal(t, float64(3), msg["redirect_delay"])
 
 			// 接続が閉じられたことを確認
 			assert.Equal(t, tt.wantConnClosed, mockConn.GetIsClosed())
 
-			// 待機列に追加されたことを確認
-			if tt.wantQueueReset {
-				assert.Equal(t, 1, q.Len())
-			}
+			// 待機列には追加されない（ユーザーは再接続時に追加される）
+			assert.Equal(t, 0, q.Len())
 
 			// ユーザーステータスが更新されたことを確認
 			assert.Equal(t, tt.wantUserStatus, user.Status)
@@ -166,6 +164,6 @@ func TestDinoTimeout_MultipleUsers(t *testing.T) {
 	})
 	require.NoError(t, err, "全ユーザーのタイムアウト処理が完了しなかった")
 
-	// 全員待機列に追加されたことを確認
-	assert.Equal(t, 3, q.Len())
+	// 待機列には追加されない（ユーザーは再接続時に追加される）
+	assert.Equal(t, 0, q.Len())
 }

@@ -30,7 +30,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 			wantMsgType:    "failure",
 			wantRedirect:   3,
 			wantConnClosed: true,
-			wantQueueLen:   1,
+			wantQueueLen:   0, // ユーザーは再接続時にキューに追加される
 			wantNewStatus:  "waiting",
 		},
 		{
@@ -40,7 +40,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 			wantMsgType:    "failure",
 			wantRedirect:   3,
 			wantConnClosed: true,
-			wantQueueLen:   1,
+			wantQueueLen:   0, // ユーザーは再接続時にキューに追加される
 			wantNewStatus:  "waiting",
 		},
 		{
@@ -50,7 +50,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 			wantMsgType:    "failure",
 			wantRedirect:   3,
 			wantConnClosed: true,
-			wantQueueLen:   1,
+			wantQueueLen:   0, // ユーザーは再接続時にキューに追加される
 			wantNewStatus:  "waiting",
 		},
 	}
@@ -82,7 +82,7 @@ func TestFailureHandler_HandleFailure(t *testing.T) {
 			require.NotNil(t, msg, "メッセージが受信されるべき")
 
 			assert.Equal(t, tt.wantMsgType, msg["type"])
-			assert.Equal(t, tt.wantRedirect, msg["redirectDelay"])
+			assert.Equal(t, tt.wantRedirect, msg["redirect_delay"])
 
 			// 待機列に追加、ステータスリセット
 			assert.Equal(t, tt.wantQueueLen, q.Len())
@@ -190,8 +190,8 @@ func TestFailureHandler_MultipleUsers(t *testing.T) {
 	})
 	require.NoError(t, err, "全ユーザーの接続が閉じられるべき")
 
-	// 全員待機列に追加されたことを確認
-	assert.Equal(t, 3, q.Len())
+	// 待機列には追加されない（ユーザーは再接続時に追加される）
+	assert.Equal(t, 0, q.Len())
 
 	// 全員のステータスがwaitingになっていることを確認
 	for _, user := range users {

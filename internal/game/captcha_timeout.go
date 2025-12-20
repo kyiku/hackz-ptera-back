@@ -72,7 +72,6 @@ func (t *CaptchaTimeout) handleTimeout() {
 	}
 	t.running = false
 	user := t.user
-	queue := t.queue
 	t.mu.Unlock()
 
 	// Send failure message
@@ -87,13 +86,13 @@ func (t *CaptchaTimeout) handleTimeout() {
 	// Reset user state
 	user.ResetToWaiting()
 
-	// Add back to queue
-	if queue != nil {
-		queue.Add(user.ID, user.Conn)
-	}
-
-	// Close connection
+	// Close WebSocket connection - user needs to reconnect fresh
+	// Don't add to queue here - the user will be added when they reconnect via WebSocket
 	if user.Conn != nil {
-		_ = user.Conn.Close()
+		conn := user.Conn // Capture for goroutine
+		user.Conn = nil   // Clear the connection reference
+		go func() {
+			conn.Close()
+		}()
 	}
 }
