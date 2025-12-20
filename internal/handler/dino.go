@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -29,9 +30,12 @@ func (h *DinoHandler) SetQueue(queue QueueInterfaceForCaptcha) {
 // Start handles the game start request.
 // This promotes the user from waiting to stage1_dino status.
 func (h *DinoHandler) Start(c echo.Context) error {
+	log.Println("[DinoHandler.Start] Request received")
+
 	// Get session
 	cookie, err := c.Cookie("session_id")
 	if err != nil || cookie == nil {
+		log.Printf("[DinoHandler.Start] No session cookie found: %v", err)
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "セッションが見つかりません",
@@ -39,8 +43,11 @@ func (h *DinoHandler) Start(c echo.Context) error {
 		})
 	}
 
+	log.Printf("[DinoHandler.Start] Session cookie: %s", cookie.Value[:8]+"...")
+
 	user, ok := h.store.Get(cookie.Value)
 	if !ok {
+		log.Printf("[DinoHandler.Start] Session not found in store: %s", cookie.Value[:8]+"...")
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "無効なセッション",
@@ -48,16 +55,20 @@ func (h *DinoHandler) Start(c echo.Context) error {
 		})
 	}
 
+	log.Printf("[DinoHandler.Start] User found: %s, Status: %s", user.ID, user.Status)
+
 	// Check if user is in waiting status (can be promoted)
 	if user.Status != model.StatusWaiting {
 		// Already promoted or in another stage - that's fine, just return success
 		if user.Status == model.StatusStage1Dino {
+			log.Printf("[DinoHandler.Start] User already in stage1_dino: %s", user.ID)
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"error":   false,
 				"message": "ゲーム開始準備完了",
 				"status":  user.Status,
 			})
 		}
+		log.Printf("[DinoHandler.Start] User not in waiting status: %s (status=%s)", user.ID, user.Status)
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "待機中ではありません",
@@ -67,6 +78,7 @@ func (h *DinoHandler) Start(c echo.Context) error {
 
 	// Promote user to stage1_dino
 	user.Status = model.StatusStage1Dino
+	log.Printf("[DinoHandler.Start] User promoted to stage1_dino: %s", user.ID)
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"error":   false,
@@ -83,10 +95,12 @@ type DinoResultRequest struct {
 
 // Result handles the Dino Run game result.
 func (h *DinoHandler) Result(c echo.Context) error {
+	log.Println("[DinoHandler.Result] Request received")
+
 	// Get session
 	cookie, err := c.Cookie("session_id")
 	if err != nil || cookie == nil {
-		// CloudFrontのcustom_error_responseがHTMLを返すのを防ぐため、常に200を返す
+		log.Printf("[DinoHandler.Result] No session cookie found: %v", err)
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "セッションが見つかりません",
@@ -94,8 +108,11 @@ func (h *DinoHandler) Result(c echo.Context) error {
 		})
 	}
 
+	log.Printf("[DinoHandler.Result] Session cookie: %s", cookie.Value[:8]+"...")
+
 	user, ok := h.store.Get(cookie.Value)
 	if !ok {
+		log.Printf("[DinoHandler.Result] Session not found in store: %s", cookie.Value[:8]+"...")
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "無効なセッション",
@@ -103,8 +120,11 @@ func (h *DinoHandler) Result(c echo.Context) error {
 		})
 	}
 
+	log.Printf("[DinoHandler.Result] User found: %s, Status: %s", user.ID, user.Status)
+
 	// Check user status
 	if user.Status != "stage1_dino" {
+		log.Printf("[DinoHandler.Result] WRONG_STAGE: User %s has status %s (expected stage1_dino)", user.ID, user.Status)
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   true,
 			"message": "Dino Runステージではありません",
@@ -122,10 +142,13 @@ func (h *DinoHandler) Result(c echo.Context) error {
 		})
 	}
 
+	log.Printf("[DinoHandler.Result] Game result: %s, Score: %d", req.Result, req.Score)
+
 	// Handle result
 	if req.Result == "clear" {
 		// Success - advance to registration dashboard (hub & spoke)
 		user.Status = model.StatusRegistering
+		log.Printf("[DinoHandler.Result] User %s cleared! Status changed to registering", user.ID)
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":      false,
 			"next_stage": "register",
