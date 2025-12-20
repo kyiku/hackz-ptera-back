@@ -11,6 +11,7 @@ import (
 // DinoHandler handles Dino Run game related requests.
 type DinoHandler struct {
 	store SessionStoreInterface
+	queue QueueInterfaceForCaptcha
 }
 
 // NewDinoHandler creates a new DinoHandler.
@@ -18,6 +19,60 @@ func NewDinoHandler(store SessionStoreInterface) *DinoHandler {
 	return &DinoHandler{
 		store: store,
 	}
+}
+
+// SetQueue sets the waiting queue.
+func (h *DinoHandler) SetQueue(queue QueueInterfaceForCaptcha) {
+	h.queue = queue
+}
+
+// Start handles the game start request.
+// This promotes the user from waiting to stage1_dino status.
+func (h *DinoHandler) Start(c echo.Context) error {
+	// Get session
+	cookie, err := c.Cookie("session_id")
+	if err != nil || cookie == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"error":   true,
+			"message": "セッションが見つかりません",
+			"code":    "SESSION_NOT_FOUND",
+		})
+	}
+
+	user, ok := h.store.Get(cookie.Value)
+	if !ok {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"error":   true,
+			"message": "無効なセッション",
+			"code":    "INVALID_SESSION",
+		})
+	}
+
+	// Check if user is in waiting status (can be promoted)
+	if user.Status != model.StatusWaiting {
+		// Already promoted or in another stage - that's fine, just return success
+		if user.Status == model.StatusStage1Dino {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"error":   false,
+				"message": "ゲーム開始準備完了",
+				"status":  user.Status,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"error":   true,
+			"message": "待機中ではありません",
+			"code":    "NOT_WAITING",
+		})
+	}
+
+	// Promote user to stage1_dino
+	user.Status = model.StatusStage1Dino
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"error":   false,
+		"message": "ゲーム開始準備完了",
+		"status":  user.Status,
+	})
 }
 
 // DinoResultRequest represents the game result request.

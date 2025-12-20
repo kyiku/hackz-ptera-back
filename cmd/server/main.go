@@ -247,6 +247,7 @@ func main() {
 	})
 
 	// Game endpoints
+	api.POST("/game/dino/start", dinoHandler.Start)
 	api.POST("/game/dino/result", dinoHandler.Result)
 
 	// CAPTCHA endpoints
@@ -289,6 +290,7 @@ func main() {
 	log.Println("  GET  /ws")
 	log.Println("  GET  /api/health")
 	log.Println("  GET  /api/queue/status")
+	log.Println("  POST /api/game/dino/start")
 	log.Println("  POST /api/game/dino/result")
 	log.Println("  POST /api/captcha/generate")
 	log.Println("  POST /api/captcha/verify")
