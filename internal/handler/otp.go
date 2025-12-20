@@ -2,29 +2,26 @@
 package handler
 
 import (
-	"fmt"
-	"math/rand"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/kyiku/hackz-ptera-back/internal/calculus"
 	"github.com/kyiku/hackz-ptera-back/internal/model"
-	"github.com/kyiku/hackz-ptera-back/internal/util"
 )
 
 // OTPHandler handles OTP-related requests.
 type OTPHandler struct {
 	store         SessionStoreInterface
-	s3Client      S3ClientInterface
 	queue         QueueInterfaceForCaptcha
-	cloudfrontURL string
+	calcGenerator *calculus.Generator
 }
 
 // NewOTPHandler creates a new OTPHandler.
 func NewOTPHandler(store SessionStoreInterface, s3Client S3ClientInterface) *OTPHandler {
 	return &OTPHandler{
 		store:         store,
-		s3Client:      s3Client,
-		cloudfrontURL: "https://test.cloudfront.net",
+		calcGenerator: calculus.NewGenerator(),
 	}
 }
 
@@ -33,24 +30,7 @@ func (h *OTPHandler) SetQueue(queue QueueInterfaceForCaptcha) {
 	h.queue = queue
 }
 
-// predefinedFish contains the list of fish for OTP.
-var predefinedFish = []struct {
-	Name     string
-	Filename string
-}{
-	{Name: "オニカマス", Filename: "onikamasu"},
-	{Name: "ホウボウ", Filename: "houhou"},
-	{Name: "マツカサウオ", Filename: "matsukasauo"},
-	{Name: "ハリセンボン", Filename: "harisenbon"},
-	{Name: "カワハギ", Filename: "kawahagi"},
-	{Name: "フグ", Filename: "fugu"},
-	{Name: "タツノオトシゴ", Filename: "tatsunootoshigo"},
-	{Name: "オコゼ", Filename: "okoze"},
-	{Name: "アンコウ", Filename: "ankou"},
-	{Name: "ウツボ", Filename: "utsubo"},
-}
-
-// Send generates and sends an OTP fish image.
+// Send generates and returns a calculus problem.
 func (h *OTPHandler) Send(c echo.Context) error {
 	// Get session
 	cookie, err := c.Cookie("session_id")
@@ -81,20 +61,24 @@ func (h *OTPHandler) Send(c echo.Context) error {
 		})
 	}
 
-	// Select random fish
-	fish := predefinedFish[rand.Intn(len(predefinedFish))]
+	// Generate calculus problem
+	problem, err := h.calcGenerator.Generate()
+	if err != nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"error":   true,
+			"message": "問題生成に失敗しました",
+			"code":    "GENERATION_FAILED",
+		})
+	}
 
-	// Save fish name for verification
-	user.OTPFishName = fish.Name
+	// Save OTP for verification
+	user.OTPCode = problem.OTP
 	user.OTPAttempts = 0
 
-	// Generate image URL
-	imageURL := fmt.Sprintf("%s/fish/%s.jpg", h.cloudfrontURL, fish.Filename)
-
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"error":     false,
-		"image_url": imageURL,
-		"message":   "この魚の名前を入力してください",
+		"error":         false,
+		"problem_latex": problem.ProblemLatex,
+		"message":       "微分問題を解いて6桁の答えを入力してください",
 	})
 }
 
@@ -134,8 +118,18 @@ func (h *OTPHandler) Verify(c echo.Context) error {
 		})
 	}
 
-	// Check answer using kana-insensitive matching
-	if util.KanaMatch(req.Answer, user.OTPFishName) {
+	// Parse answer as integer
+	answer, err := strconv.Atoi(req.Answer)
+	if err != nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"error":   true,
+			"message": "6桁の数字を入力してください",
+			"code":    "INVALID_ANSWER",
+		})
+	}
+
+	// Check answer
+	if answer == user.OTPCode {
 		// Success - registration complete
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"error":   false,
@@ -151,18 +145,17 @@ func (h *OTPHandler) Verify(c echo.Context) error {
 		return h.handleMaxAttempts(c, user)
 	}
 
-	// Generate new fish for retry
-	fish := h.getRandomFishExcluding(user.OTPFishName)
-	user.OTPFishName = fish.Name
+	// Generate new problem for retry
+	newProblem, _ := h.calcGenerator.Generate()
+	user.OTPCode = newProblem.OTP
 
 	remaining := model.MaxOTPAttempts - user.OTPAttempts
-	imageURL := fmt.Sprintf("%s/fish/%s.jpg", h.cloudfrontURL, fish.Filename)
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"error":              true,
 		"message":            "不正解です。もう一度試してください",
 		"attempts_remaining": remaining,
-		"new_image_url":      imageURL,
+		"new_problem_latex":  newProblem.ProblemLatex,
 	})
 }
 
@@ -172,7 +165,7 @@ func (h *OTPHandler) handleMaxAttempts(c echo.Context, user *model.User) error {
 	if user.Conn != nil {
 		_ = user.Conn.WriteJSON(map[string]interface{}{
 			"type":           "failure",
-			"message":        "魚の名前を3回間違えました。",
+			"message":        "3回失敗しました。待機列の最後尾からやり直しです。",
 			"redirect_delay": float64(3),
 		})
 	}
@@ -192,20 +185,7 @@ func (h *OTPHandler) handleMaxAttempts(c echo.Context, user *model.User) error {
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"error":          true,
-		"message":        "魚の名前を3回間違えました。",
+		"message":        "3回失敗しました。待機列の最後尾からやり直しです。",
 		"redirect_delay": float64(3),
 	})
-}
-
-// getRandomFishExcluding returns a random fish excluding the specified name.
-func (h *OTPHandler) getRandomFishExcluding(excludeName string) struct {
-	Name     string
-	Filename string
-} {
-	for {
-		fish := predefinedFish[rand.Intn(len(predefinedFish))]
-		if fish.Name != excludeName {
-			return fish
-		}
-	}
 }

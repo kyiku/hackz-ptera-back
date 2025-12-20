@@ -17,55 +17,55 @@ import (
 
 func TestOTPHandler_Send(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupUser      func(*model.User)
-		hasCookie      bool
-		wantStatusCode int
-		wantError      bool
-		wantImageURL   bool
-		wantFishSet    bool
+		name             string
+		setupUser        func(*model.User)
+		hasCookie        bool
+		wantStatusCode   int
+		wantError        bool
+		wantProblemLatex bool
+		wantOTPSet       bool
 	}{
 		{
-			name: "正常系: OTP画像送信成功",
+			name: "正常系: 微分問題送信成功",
 			setupUser: func(u *model.User) {
 				u.Status = "registering"
 			},
-			hasCookie:      true,
-			wantStatusCode: http.StatusOK,
-			wantError:      false,
-			wantImageURL:   true,
-			wantFishSet:    true,
+			hasCookie:        true,
+			wantStatusCode:   http.StatusOK,
+			wantError:        false,
+			wantProblemLatex: true,
+			wantOTPSet:       true,
 		},
 		{
-			name:           "異常系: セッションなし",
-			setupUser:      nil,
-			hasCookie:      false,
-			wantStatusCode: http.StatusUnauthorized,
-			wantError:      true,
-			wantImageURL:   false,
-			wantFishSet:    false,
+			name:             "異常系: セッションなし",
+			setupUser:        nil,
+			hasCookie:        false,
+			wantStatusCode:   http.StatusOK,
+			wantError:        true,
+			wantProblemLatex: false,
+			wantOTPSet:       false,
 		},
 		{
 			name: "異常系: waiting状態",
 			setupUser: func(u *model.User) {
 				u.Status = "waiting"
 			},
-			hasCookie:      true,
-			wantStatusCode: http.StatusForbidden,
-			wantError:      true,
-			wantImageURL:   false,
-			wantFishSet:    false,
+			hasCookie:        true,
+			wantStatusCode:   http.StatusOK,
+			wantError:        true,
+			wantProblemLatex: false,
+			wantOTPSet:       false,
 		},
 		{
 			name: "異常系: stage1_dino状態",
 			setupUser: func(u *model.User) {
 				u.Status = "stage1_dino"
 			},
-			hasCookie:      true,
-			wantStatusCode: http.StatusForbidden,
-			wantError:      true,
-			wantImageURL:   false,
-			wantFishSet:    false,
+			hasCookie:        true,
+			wantStatusCode:   http.StatusOK,
+			wantError:        true,
+			wantProblemLatex: false,
+			wantOTPSet:       false,
 		},
 	}
 
@@ -73,7 +73,6 @@ func TestOTPHandler_Send(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
-			mockS3.FishImages = []string{"onikamasu", "houhou", "matsukasauo"}
 
 			var sessionID string
 			var user *model.User
@@ -99,15 +98,18 @@ func TestOTPHandler_Send(t *testing.T) {
 
 			assert.Equal(t, tt.wantError, resp["error"])
 
-			if tt.wantImageURL {
-				imageURL, ok := resp["imageUrl"].(string)
-				assert.True(t, ok, "imageUrlが存在するべき")
-				assert.Contains(t, imageURL, "cloudfront.net/fish/")
+			if tt.wantProblemLatex {
+				problemLatex, ok := resp["problem_latex"].(string)
+				assert.True(t, ok, "problem_latexが存在するべき")
+				assert.Contains(t, problemLatex, "x^2")
+				assert.Contains(t, problemLatex, "微分")
 				assert.NotEmpty(t, resp["message"])
 			}
 
-			if tt.wantFishSet && user != nil {
-				assert.NotEmpty(t, user.OTPFishName, "正解の魚名が保存されているべき")
+			if tt.wantOTPSet && user != nil {
+				assert.NotZero(t, user.OTPCode, "OTPが保存されているべき")
+				assert.GreaterOrEqual(t, user.OTPCode, 100000, "OTPは6桁以上")
+				assert.LessOrEqual(t, user.OTPCode, 999999, "OTPは6桁以下")
 				assert.Equal(t, 0, user.OTPAttempts, "試行回数がリセットされているべき")
 			}
 		})
@@ -117,36 +119,29 @@ func TestOTPHandler_Send(t *testing.T) {
 func TestOTPHandler_Verify_Success(t *testing.T) {
 	tests := []struct {
 		name       string
-		fishName   string
+		otpCode    int
 		answer     string
 		wantStatus int
 		wantError  bool
 	}{
 		{
-			name:       "正常系: カタカナで正解",
-			fishName:   "オニカマス",
-			answer:     "オニカマス",
+			name:       "正常系: 正しい6桁回答",
+			otpCode:    123456,
+			answer:     "123456",
 			wantStatus: http.StatusOK,
 			wantError:  false,
 		},
 		{
-			name:       "正常系: ひらがなで正解",
-			fishName:   "オニカマス",
-			answer:     "おにかます",
+			name:       "正常系: 6桁境界値（最小）",
+			otpCode:    100000,
+			answer:     "100000",
 			wantStatus: http.StatusOK,
 			wantError:  false,
 		},
 		{
-			name:       "正常系: 混在で正解（カタカナ正解にひらがな回答）",
-			fishName:   "ホウボウ",
-			answer:     "ほうぼう",
-			wantStatus: http.StatusOK,
-			wantError:  false,
-		},
-		{
-			name:       "正常系: ひらがな正解にカタカナ回答",
-			fishName:   "まつかさうお",
-			answer:     "マツカサウオ",
+			name:       "正常系: 6桁境界値（最大）",
+			otpCode:    999999,
+			answer:     "999999",
 			wantStatus: http.StatusOK,
 			wantError:  false,
 		},
@@ -159,7 +154,7 @@ func TestOTPHandler_Verify_Success(t *testing.T) {
 
 			user, sessionID := store.Create()
 			user.Status = "registering"
-			user.OTPFishName = tt.fishName
+			user.OTPCode = tt.otpCode
 			user.OTPAttempts = 0
 
 			h := NewOTPHandler(store, mockS3)
@@ -184,52 +179,52 @@ func TestOTPHandler_Verify_Success(t *testing.T) {
 
 func TestOTPHandler_Verify_Failure(t *testing.T) {
 	tests := []struct {
-		name            string
-		fishName        string
-		answer          string
-		currentAttempts int
-		wantStatus      int
-		wantRemaining   int
-		wantNewImage    bool
-		wantRedirect    bool
-		wantConnClosed  bool
-		wantQueueReset  bool
+		name             string
+		otpCode          int
+		answer           string
+		currentAttempts  int
+		wantStatus       int
+		wantRemaining    int
+		wantNewProblem   bool
+		wantRedirect     bool
+		wantConnClosed   bool
+		wantStatusReset  bool
 	}{
 		{
 			name:            "失敗1回目: 残り2回",
-			fishName:        "オニカマス",
-			answer:          "wrong",
+			otpCode:         123456,
+			answer:          "654321",
 			currentAttempts: 0,
 			wantStatus:      http.StatusOK,
 			wantRemaining:   2,
-			wantNewImage:    true,
+			wantNewProblem:  true,
 			wantRedirect:    false,
 			wantConnClosed:  false,
-			wantQueueReset:  false,
+			wantStatusReset: false,
 		},
 		{
 			name:            "失敗2回目: 残り1回",
-			fishName:        "オニカマス",
-			answer:          "wrong",
+			otpCode:         123456,
+			answer:          "111111",
 			currentAttempts: 1,
 			wantStatus:      http.StatusOK,
 			wantRemaining:   1,
-			wantNewImage:    true,
+			wantNewProblem:  true,
 			wantRedirect:    false,
 			wantConnClosed:  false,
-			wantQueueReset:  false,
+			wantStatusReset: false,
 		},
 		{
 			name:            "失敗3回目: 最後尾へリセット",
-			fishName:        "オニカマス",
-			answer:          "wrong",
+			otpCode:         123456,
+			answer:          "000000",
 			currentAttempts: 2,
 			wantStatus:      http.StatusOK,
 			wantRemaining:   0,
-			wantNewImage:    false,
+			wantNewProblem:  false,
 			wantRedirect:    true,
 			wantConnClosed:  true,
-			wantQueueReset:  true,
+			wantStatusReset: true,
 		},
 	}
 
@@ -237,13 +232,12 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := session.NewSessionStore()
 			mockS3 := testutil.NewMockS3Client()
-			mockS3.FishImages = []string{"newfish1", "newfish2"}
 			q := queue.NewWaitingQueue()
 
 			mockConn := testutil.NewMockWebSocketConn()
 			user, sessionID := store.Create()
 			user.Status = "registering"
-			user.OTPFishName = tt.fishName
+			user.OTPCode = tt.otpCode
 			user.OTPAttempts = tt.currentAttempts
 			user.Conn = mockConn
 
@@ -265,14 +259,14 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 
 			assert.True(t, resp["error"].(bool))
 
-			if tt.wantNewImage {
-				remaining := int(resp["attemptsRemaining"].(float64))
+			if tt.wantNewProblem {
+				remaining := int(resp["attempts_remaining"].(float64))
 				assert.Equal(t, tt.wantRemaining, remaining)
-				assert.NotEmpty(t, resp["newImageUrl"])
+				assert.NotEmpty(t, resp["new_problem_latex"])
 			}
 
 			if tt.wantRedirect {
-				assert.Equal(t, float64(3), resp["redirectDelay"])
+				assert.Equal(t, float64(3), resp["redirect_delay"])
 			}
 
 			if tt.wantConnClosed {
@@ -283,10 +277,61 @@ func TestOTPHandler_Verify_Failure(t *testing.T) {
 				require.NoError(t, err, "WebSocket接続が閉じられるべき")
 			}
 
-			if tt.wantQueueReset {
-				assert.Equal(t, 1, q.Len(), "待機列に追加されるべき")
+			if tt.wantStatusReset {
+				// 待機列には追加されない（再接続時に追加）
+				assert.Equal(t, 0, q.Len())
 				assert.Equal(t, "waiting", user.Status)
 			}
+		})
+	}
+}
+
+func TestOTPHandler_Verify_InvalidAnswer(t *testing.T) {
+	tests := []struct {
+		name      string
+		answer    string
+		wantError bool
+		wantCode  string
+	}{
+		{
+			name:      "異常系: 非数値",
+			answer:    "abcdef",
+			wantError: true,
+			wantCode:  "INVALID_ANSWER",
+		},
+		{
+			name:      "異常系: 空文字",
+			answer:    "",
+			wantError: true,
+			wantCode:  "INVALID_ANSWER",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := session.NewSessionStore()
+			mockS3 := testutil.NewMockS3Client()
+
+			user, sessionID := store.Create()
+			user.Status = "registering"
+			user.OTPCode = 123456
+
+			h := NewOTPHandler(store, mockS3)
+
+			body := `{"answer": "` + tt.answer + `"}`
+			tc := testutil.NewTestContext(http.MethodPost, "/api/otp/verify", strings.NewReader(body))
+			tc.Request.Header.Set("Content-Type", "application/json")
+			tc.Request.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID})
+
+			err := h.Verify(tc.Context)
+
+			require.NoError(t, err)
+
+			var resp map[string]interface{}
+			_ = json.Unmarshal(tc.Recorder.Body.Bytes(), &resp)
+
+			assert.Equal(t, tt.wantError, resp["error"])
+			assert.Equal(t, tt.wantCode, resp["code"])
 		})
 	}
 }

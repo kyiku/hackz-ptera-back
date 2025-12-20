@@ -41,8 +41,8 @@ type User struct {
 	CaptchaAttempts int // Number of CAPTCHA attempts (max 3)
 
 	// OTP fields
-	OTPFishName string // Correct fish name for OTP
-	OTPAttempts int    // Number of OTP attempts (max 3)
+	OTPCode     int // Correct OTP answer (6-digit number)
+	OTPAttempts int // Number of OTP attempts (max 3)
 
 	// Registration fields
 	RegisterToken    string    // Registration token (UUID)
@@ -96,7 +96,7 @@ func (u *User) ResetToWaiting() {
 
 	// Reset OTP state
 	u.OTPAttempts = 0
-	u.OTPFishName = ""
+	u.OTPCode = 0
 
 	// Reset registration token
 	u.RegisterToken = ""
