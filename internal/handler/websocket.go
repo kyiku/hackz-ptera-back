@@ -104,6 +104,8 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 			Value:    sessionID,
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteNoneMode,
 		})
 	} else {
 		// Get existing session
@@ -117,6 +119,8 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 				Value:    sessionID,
 				Path:     "/",
 				HttpOnly: true,
+				Secure:   true,
+				SameSite: http.SameSiteNoneMode,
 			})
 		}
 	}
