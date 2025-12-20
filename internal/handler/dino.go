@@ -9,10 +9,16 @@ import (
 	"github.com/kyiku/hackz-ptera-back/internal/model"
 )
 
+// QueueInterfaceForDino is the queue interface for DinoHandler
+type QueueInterfaceForDino interface {
+	Remove(userID string)
+	BroadcastPositions()
+}
+
 // DinoHandler handles Dino Run game related requests.
 type DinoHandler struct {
 	store SessionStoreInterface
-	queue QueueInterfaceForCaptcha
+	queue QueueInterfaceForDino
 }
 
 // NewDinoHandler creates a new DinoHandler.
@@ -23,7 +29,7 @@ func NewDinoHandler(store SessionStoreInterface) *DinoHandler {
 }
 
 // SetQueue sets the waiting queue.
-func (h *DinoHandler) SetQueue(queue QueueInterfaceForCaptcha) {
+func (h *DinoHandler) SetQueue(queue QueueInterfaceForDino) {
 	h.queue = queue
 }
 
@@ -79,6 +85,13 @@ func (h *DinoHandler) Start(c echo.Context) error {
 	// Promote user to stage1_dino
 	user.Status = model.StatusStage1Dino
 	log.Printf("[DinoHandler.Start] User promoted to stage1_dino: %s", user.ID)
+
+	// Remove from queue and broadcast to other users
+	if h.queue != nil {
+		h.queue.Remove(cookie.Value)
+		h.queue.BroadcastPositions()
+		log.Printf("[DinoHandler.Start] User removed from queue and positions broadcasted: %s", user.ID)
+	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"error":   false,

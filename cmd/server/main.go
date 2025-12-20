@@ -121,6 +121,14 @@ func (a *QueueAdapter) Add(userID string, conn model.WebSocketConn) {
 	a.queue.Add(userID, conn)
 }
 
+func (a *QueueAdapter) Remove(userID string) {
+	a.queue.Remove(userID)
+}
+
+func (a *QueueAdapter) BroadcastPositions() {
+	a.queue.BroadcastPositions()
+}
+
 func main() {
 	e := echo.New()
 
@@ -197,6 +205,7 @@ func main() {
 	// Initialize handlers
 	wsHandler := handler.NewWebSocketHandler(sessionStore, waitingQueue)
 	dinoHandler := handler.NewDinoHandler(sessionStore)
+	dinoHandler.SetQueue(queueAdapter)
 	registerHandler := handler.NewRegisterHandler(sessionStore)
 	registerHandler.SetQueue(queueAdapter)
 
