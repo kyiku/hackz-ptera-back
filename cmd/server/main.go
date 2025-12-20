@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -67,13 +68,33 @@ type BedrockAdapter struct {
 	client *bedrockruntime.Client
 }
 
+// BedrockRequest represents the request body for Claude via Bedrock
+type BedrockRequest struct {
+	AnthropicVersion string           `json:"anthropic_version"`
+	MaxTokens        int              `json:"max_tokens"`
+	Messages         []BedrockMessage `json:"messages"`
+}
+
+// BedrockMessage represents a message in the Bedrock request
+type BedrockMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 func (a *BedrockAdapter) InvokeModel(modelID string, prompt string) (string, error) {
-	// Build request body for Claude
-	body := []byte(`{
-		"anthropic_version": "bedrock-2023-05-31",
-		"max_tokens": 256,
-		"messages": [{"role": "user", "content": "` + prompt + `"}]
-	}`)
+	// Build request body for Claude using proper JSON marshaling
+	req := BedrockRequest{
+		AnthropicVersion: "bedrock-2023-05-31",
+		MaxTokens:        256,
+		Messages: []BedrockMessage{
+			{Role: "user", Content: prompt},
+		},
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
 
 	output, err := a.client.InvokeModel(context.TODO(), &bedrockruntime.InvokeModelInput{
 		ModelId:     &modelID,

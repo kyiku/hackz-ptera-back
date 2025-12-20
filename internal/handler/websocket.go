@@ -4,6 +4,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -95,6 +96,14 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 	var user *model.User
 	var sessionID string
 
+	// Environment-aware cookie settings
+	isProduction := os.Getenv("ENV") == "production"
+	cookieSecure := isProduction
+	cookieSameSite := http.SameSiteLaxMode
+	if isProduction {
+		cookieSameSite = http.SameSiteNoneMode
+	}
+
 	cookie, err := c.Cookie("session_id")
 	if err != nil || cookie == nil {
 		// Create new session
@@ -104,8 +113,8 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 			Value:    sessionID,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteNoneMode,
+			Secure:   cookieSecure,
+			SameSite: cookieSameSite,
 		})
 	} else {
 		// Get existing session
@@ -119,8 +128,8 @@ func (h *WebSocketHandler) Connect(c echo.Context) error {
 				Value:    sessionID,
 				Path:     "/",
 				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteNoneMode,
+				Secure:   cookieSecure,
+				SameSite: cookieSameSite,
 			})
 		}
 	}
