@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/kyiku/hackz-ptera-back/internal/calculus"
 	"github.com/kyiku/hackz-ptera-back/internal/model"
+	"github.com/kyiku/hackz-ptera-back/internal/token"
 )
 
 // OTPHandler handles OTP-related requests.
@@ -130,10 +131,13 @@ func (h *OTPHandler) Verify(c echo.Context) error {
 
 	// Check answer
 	if answer == user.OTPCode {
-		// Success - registration complete
+		// Success - generate registration token
+		registerToken := token.GenerateRegisterToken(user)
+
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"error":   false,
-			"message": "正解です！登録が完了しました",
+			"error":          false,
+			"message":        "正解です！登録が完了しました",
+			"register_token": registerToken,
 		})
 	}
 
